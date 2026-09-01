@@ -1,4 +1,5 @@
 import { planMorningBriefing } from "../domain/morningBriefing.js";
+import { isLikelyGoingOut } from "../domain/personalProfile/dailyRoutine.js";
 import type {
   BriefingNarrator,
   ScheduleProvider,
@@ -27,6 +28,7 @@ export async function runMorningBriefing(
     date: options.today.date,
     weather,
     schedules,
+    isLikelyGoingOut: isLikelyGoingOut({ date: options.today.date, schedules }),
   });
   const briefing = (await dependencies.narrator.narrate(plan)).trim();
 

@@ -11,6 +11,7 @@ export type Weather = {
 export type Schedule = {
   title: string;
   description?: string;
+  location?: string;
   startTime?: string;
   isAllDay: boolean;
 };
@@ -43,10 +44,12 @@ export function planMorningBriefing(input: {
   date: string;
   weather: Weather;
   schedules: Schedule[];
+  isLikelyGoingOut?: boolean;
 }): MorningBriefingPlan {
   const schedulesToMention = input.schedules.slice(0, 3);
-  const shouldBringUmbrella =
-    input.weather.condition === "rain" || input.weather.rainProbability >= 40;
+  const shouldBringUmbrella = input.isLikelyGoingOut !== false && (
+    input.weather.condition === "rain" || input.weather.rainProbability >= 40
+  );
 
   return {
     date: input.date,

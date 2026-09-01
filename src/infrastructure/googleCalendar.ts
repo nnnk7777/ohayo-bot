@@ -59,6 +59,7 @@ export class GoogleCalendarScheduleProvider implements ScheduleProvider {
       .map((event) => ({
         title: event.summary?.trim() || "名称未設定の予定",
         description: event.description?.trim() || undefined,
+        location: event.location?.trim() || undefined,
         startTime: event.start?.dateTime
           ? DateTime.fromISO(event.start.dateTime).setZone(today.timeZone).toFormat("HH:mm")
           : undefined,
