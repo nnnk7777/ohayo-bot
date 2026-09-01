@@ -10,6 +10,7 @@
     "dev": "tsx src/cli/index.ts",
     "voice:sample": "tsx src/cli/voiceSample.ts",
     "auth": "tsx src/cli/index.ts auth",
+    "test": "vitest run",
     "build": "tsc",
     "start": "node dist/cli/index.js",
     "typecheck": "tsc --noEmit"
@@ -21,10 +22,11 @@
     "openai": "^7.8.0"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
     "@types/luxon": "^3.7.1",
+    "@types/node": "^24.0.0",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
   },
   "packageManager": "pnpm@8.15.1"
 }
