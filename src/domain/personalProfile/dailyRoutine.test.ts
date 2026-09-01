@@ -10,6 +10,10 @@ describe("dailyRoutine", () => {
     expect(isLikelyGoingOut({ date: "2026-09-01", schedules: [] })).toBe(false);
   });
 
+  it("祝日は出社曜日より優先する", () => {
+    expect(isLikelyGoingOut({ date: "2026-09-02", isHoliday: true, schedules: [] })).toBe(false);
+  });
+
   it("予定の場所や通院は曜日に関わらず外出見込みになる", () => {
     expect(isLikelyGoingOut({ date: "2026-09-01", schedules: [{ title: "打合せ", location: "渋谷", isAllDay: false }] })).toBe(true);
     expect(isLikelyGoingOut({ date: "2026-09-06", schedules: [{ title: "歯科", isAllDay: false }] })).toBe(true);

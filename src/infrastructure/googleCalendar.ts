@@ -7,10 +7,11 @@ import { promisify } from "node:util";
 import { DateTime } from "luxon";
 import { google } from "googleapis";
 import type { Schedule } from "../domain/morningBriefing.js";
-import type { ScheduleProvider, Today } from "../application/ports.js";
+import type { HolidayProvider, ScheduleProvider, Today } from "../application/ports.js";
 
 const execFileAsync = promisify(execFile);
 const calendarScope = "https://www.googleapis.com/auth/calendar.readonly";
+const japaneseHolidayCalendarId = "ja.japanese#holiday@group.v.calendar.google.com";
 
 type GoogleCalendarConfig = {
   calendarId: string;
@@ -65,6 +66,24 @@ export class GoogleCalendarScheduleProvider implements ScheduleProvider {
           : undefined,
         isAllDay: Boolean(event.start?.date),
       }));
+  }
+}
+
+export class GoogleJapaneseHolidayProvider implements HolidayProvider {
+  constructor(private readonly config: GoogleCalendarConfig) {}
+
+  async isHoliday(today: Today): Promise<boolean> {
+    const auth = await getAuthorizedClient(this.config);
+    const start = DateTime.fromISO(today.date, { zone: today.timeZone }).startOf("day");
+    const end = start.plus({ days: 1 });
+    const calendar = google.calendar({ version: "v3", auth });
+    const result = await calendar.events.list({
+      calendarId: japaneseHolidayCalendarId,
+      timeMin: start.toUTC().toISO() ?? undefined,
+      timeMax: end.toUTC().toISO() ?? undefined,
+      singleEvents: true,
+    });
+    return (result.data.items ?? []).some((event) => event.status !== "cancelled");
   }
 }
 
