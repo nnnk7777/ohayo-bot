@@ -4,6 +4,7 @@ import { openAiTtsProfile } from "./speechProfile.js";
 import { GoogleCalendarScheduleProvider, GoogleJapaneseHolidayProvider } from "../infrastructure/googleCalendar.js";
 import { OpenMeteoWeatherProvider } from "../infrastructure/openMeteo.js";
 import { OpenAiBriefingNarrator } from "../infrastructure/openAiNarrator.js";
+import { createAudioPlayer } from "../infrastructure/audioPlayer.js";
 import { MacSaySpeaker, OpenAiTtsSpeaker } from "../infrastructure/speech.js";
 
 export function createDependencies(config: AppConfig) {
@@ -20,6 +21,7 @@ export function createDependencies(config: AppConfig) {
             openAiTtsProfile.voice,
             openAiTtsProfile.instructions,
             openAiTtsProfile.speed,
+            createAudioPlayer(config.speech.audioPlayer),
           )
         : new MacSaySpeaker(),
   };

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import OpenAI from "openai";
 import type { Speaker } from "../application/ports.js";
+import type { AudioPlayer } from "./audioPlayer.js";
 import { toJapaneseSpeechText } from "./japaneseSpeechText.js";
 
 export class MacSaySpeaker implements Speaker {
@@ -28,6 +29,7 @@ export class OpenAiTtsSpeaker implements Speaker {
     private readonly voice: string,
     private readonly instructions: string,
     private readonly speed: number,
+    private readonly audioPlayer: AudioPlayer,
   ) {
     this.client = new OpenAI({ apiKey });
   }
@@ -46,20 +48,9 @@ export class OpenAiTtsSpeaker implements Speaker {
 
     try {
       await writeFile(audioPath, Buffer.from(await speech.arrayBuffer()), { mode: 0o600 });
-      await playAudio(audioPath);
+      await this.audioPlayer.play(audioPath);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
   }
-}
-
-function playAudio(audioPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const process = spawn("afplay", [audioPath], { stdio: "inherit" });
-    process.once("error", reject);
-    process.once("exit", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`afplay コマンドが終了コード ${code ?? "unknown"} で失敗しました。`));
-    });
-  });
 }

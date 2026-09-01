@@ -46,10 +46,28 @@ pnpm auth
 pnpm dev
 ```
 
-標準ではmacOSの `say` を使います。OpenAI TTSを使う場合は、`.env` を次のように設定してください。原稿がOpenAI APIへ送られ、生成音声は一時ファイルからMacで再生されます。
+標準ではmacOSの `say` を使います。OpenAI TTSを使う場合は、`.env` を次のように設定してください。原稿がOpenAI APIへ送られ、生成音声は一時ファイルから再生されます。
 
 ```env
 SPEECH_ENGINE=openai
+```
+
+OpenAI TTSの再生プレイヤーは標準でOSに合わせて選びます。macOSでは `afplay`、Linux（Raspberry Piを含む）では `mpg123` を使います。Linuxでは事前に `sudo apt install mpg123` を実行してください。
+
+Mac上でLinux用の再生経路を試す場合は、Homebrewで `mpg123` を入れ、`.env` に次を設定します。
+
+```bash
+brew install mpg123
+```
+
+```env
+AUDIO_PLAYER=mpg123
+```
+
+音声再生経路だけを確認する場合は、固定原稿を1ボイスで再生します。
+
+```bash
+AUDIO_PLAYER=mpg123 pnpm voice:sample -- --voices=marin
 ```
 
 文章生成のモデル・原稿ルールは [briefingProfile.ts](src/bootstrap/briefingProfile.ts)、音声のモデル・声・速度・話し方は [speechProfile.ts](src/bootstrap/speechProfile.ts) でGit管理します。現在の採用ボイスは `marin` です。
