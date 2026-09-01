@@ -1,11 +1,26 @@
 const KANJI_DIGITS = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
 
+const DAY_READINGS: Record<number, string> = {
+  2: "ふつか",
+  3: "みっか",
+  4: "よっか",
+  5: "いつか",
+  6: "むいか",
+  7: "なのか",
+  8: "ようか",
+  9: "ここのか",
+  10: "とおか",
+  14: "じゅうよっか",
+  20: "はつか",
+  24: "にじゅうよっか",
+};
+
 export function toJapaneseSpeechText(text: string): string {
   return text.replace(/(\d{1,2})月(\d{1,2})日/g, (original, monthText: string, dayText: string) => {
     const month = Number(monthText);
     const day = Number(dayText);
     return month >= 1 && month <= 12 && day >= 1 && day <= 31
-      ? `${toKanjiNumber(month)}月${toKanjiNumber(day)}日`
+      ? `${toKanjiNumber(month)}月${DAY_READINGS[day] ?? `${toKanjiNumber(day)}日`}`
       : original;
   });
 }
