@@ -1,5 +1,6 @@
 import { loadConfig } from "../bootstrap/config.js";
 import { openAiTtsProfile } from "../bootstrap/speechProfile.js";
+import { createAudioPlayer } from "../infrastructure/audioPlayer.js";
 import { OpenAiTtsSpeaker } from "../infrastructure/speech.js";
 
 const DEFAULT_VOICES = ["ash", "ballad", "coral", "cedar"];
@@ -19,6 +20,7 @@ async function main(): Promise<void> {
       voice,
       openAiTtsProfile.instructions,
       openAiTtsProfile.speed,
+      createAudioPlayer(config.speech.audioPlayer),
     );
     await speaker.speak(SAMPLE_TEXT);
   }

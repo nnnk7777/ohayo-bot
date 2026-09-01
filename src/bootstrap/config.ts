@@ -1,10 +1,12 @@
 import "dotenv/config";
 import { resolve } from "node:path";
+import type { AudioPlayerPreference } from "../infrastructure/audioPlayer.js";
 
 export type AppConfig = {
   openAiApiKey: string;
   speech: {
     engine: "macos" | "openai";
+    audioPlayer: AudioPlayerPreference;
   };
   location: {
     name: string;
@@ -26,6 +28,7 @@ export function loadConfig(): AppConfig {
     openAiApiKey: required("OPENAI_API_KEY"),
     speech: {
       engine: speechEngine(),
+      audioPlayer: audioPlayerPreference(),
     },
     location: {
       name: required("WEATHER_LOCATION_NAME"),
@@ -41,6 +44,12 @@ function speechEngine(): "macos" | "openai" {
   const engine = process.env.SPEECH_ENGINE?.trim() || "macos";
   if (engine === "macos" || engine === "openai") return engine;
   throw new Error("環境変数 SPEECH_ENGINE は macos または openai にしてください。");
+}
+
+function audioPlayerPreference(): AudioPlayerPreference {
+  const player = process.env.AUDIO_PLAYER?.trim() || "auto";
+  if (player === "auto" || player === "afplay" || player === "mpg123") return player;
+  throw new Error("環境変数 AUDIO_PLAYER は auto、afplay、mpg123 のいずれかにしてください。");
 }
 
 export function loadGoogleCalendarConfig(): GoogleCalendarConfig {
