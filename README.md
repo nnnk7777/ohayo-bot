@@ -1,6 +1,6 @@
 # ohayo-bot
 
-Macで、今日の天気とGoogle Calendarの予定から朝の短い原稿を作り、読み上げる個人用CLIです。
+Macで、今日の天気とGoogle Calendarの予定から朝の短い原稿を作り、読み上げる個人用CLIです。現在は音声・話し方の調整中のため、原稿は固定文を使い、OpenAIへの文章生成リクエストは行いません。
 
 ## 必要なもの
 
@@ -40,11 +40,37 @@ pnpm auth
 
 ## 実行
 
-原稿を作ってMacで読み上げます。
+固定の原稿をMacで読み上げます。天気と予定は引き続き取得しますが、原稿の内容にはまだ反映しません。
 
 ```bash
 pnpm dev
 ```
+
+標準ではmacOSの `say` を使います。OpenAI TTSを使う場合は、`.env` を次のように設定してください。原稿がOpenAI APIへ送られ、生成音声は一時ファイルからMacで再生されます。
+
+```env
+SPEECH_ENGINE=openai
+```
+
+モデル・声・速度・話し方は [speechProfile.ts](src/bootstrap/speechProfile.ts) でGit管理します。現在の採用ボイスは `marin` です。
+
+OpenAI TTSへ渡す直前に、月日表記だけを漢数字へ正規化します。表示する原稿は変えず、たとえば `9月1日` は `九月一日` として読み上げます。
+
+### 声の比較
+
+`marin` と `sage` 以外の候補を、固定原稿で連続再生できます。デフォルトでは `ash`、`ballad`、`coral`、`cedar` を順に再生します。
+
+```bash
+pnpm voice:sample
+```
+
+任意の声だけを試す場合は、カンマ区切りで指定します。
+
+```bash
+pnpm voice:sample -- --voices=alloy,echo,fable,nova,onyx,shimmer,verse
+```
+
+OpenAI TTSで指定できる標準ボイスは、`alloy`、`ash`、`ballad`、`coral`、`echo`、`fable`、`onyx`、`nova`、`sage`、`shimmer`、`verse`、`marin`、`cedar` です。
 
 音声を流さず、原稿だけ確認するには次のようにします。
 
@@ -67,4 +93,4 @@ pnpm start
 - `src/bootstrap`: `.env` と依存関係の組み立て
 - `src/cli`: コマンド引数の処理
 
-現在の音声実装はmacOSの `say` です。`Speaker` という境界を設けているため、将来はOpenAI TTSやVOICEVOXの実装へ差し替えられます。
+`Speaker` という境界を設けているため、macOS `say` とOpenAI TTSを切り替えられます。将来はVOICEVOXなども追加できます。
