@@ -3,7 +3,9 @@ import { resolve } from "node:path";
 
 export type AppConfig = {
   openAiApiKey: string;
-  openAiModel: string;
+  speech: {
+    engine: "macos" | "openai";
+  };
   location: {
     name: string;
     latitude: number;
@@ -22,7 +24,9 @@ export type GoogleCalendarConfig = {
 export function loadConfig(): AppConfig {
   return {
     openAiApiKey: required("OPENAI_API_KEY"),
-    openAiModel: process.env.OPENAI_MODEL?.trim() || "gpt-5.6-luna",
+    speech: {
+      engine: speechEngine(),
+    },
     location: {
       name: required("WEATHER_LOCATION_NAME"),
       latitude: numberSetting("WEATHER_LATITUDE"),
@@ -31,6 +35,12 @@ export function loadConfig(): AppConfig {
     timeZone: required("TIME_ZONE"),
     googleCalendar: loadGoogleCalendarConfig(),
   };
+}
+
+function speechEngine(): "macos" | "openai" {
+  const engine = process.env.SPEECH_ENGINE?.trim() || "macos";
+  if (engine === "macos" || engine === "openai") return engine;
+  throw new Error("環境変数 SPEECH_ENGINE は macos または openai にしてください。");
 }
 
 export function loadGoogleCalendarConfig(): GoogleCalendarConfig {
