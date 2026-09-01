@@ -1,6 +1,6 @@
 # ohayo-bot
 
-Macで、今日の天気とGoogle Calendarの予定から朝の短い原稿を作り、読み上げる個人用CLIです。現在は音声・話し方の調整中のため、原稿は固定文を使い、OpenAIへの文章生成リクエストは行いません。
+Macで、今日の天気とGoogle Calendarの予定から朝の短い原稿を作り、読み上げる個人用CLIです。
 
 ## 必要なもの
 
@@ -40,7 +40,7 @@ pnpm auth
 
 ## 実行
 
-固定の原稿をMacで読み上げます。天気と予定は引き続き取得しますが、原稿の内容にはまだ反映しません。
+天気と予定をOpenAI APIへ送り、朝に聞きやすい短い日本語の原稿を作って読み上げます。原稿には、その日の天気や予定に応じた短いしめの一言も含めます。
 
 ```bash
 pnpm dev
@@ -52,9 +52,29 @@ pnpm dev
 SPEECH_ENGINE=openai
 ```
 
-モデル・声・速度・話し方は [speechProfile.ts](src/bootstrap/speechProfile.ts) でGit管理します。現在の採用ボイスは `marin` です。
+文章生成のモデル・原稿ルールは [briefingProfile.ts](src/bootstrap/briefingProfile.ts)、音声のモデル・声・速度・話し方は [speechProfile.ts](src/bootstrap/speechProfile.ts) でGit管理します。現在の採用ボイスは `marin` です。
 
-OpenAI TTSへ渡す直前に、月日表記だけを漢数字へ正規化します。表示する原稿は変えず、たとえば `9月1日` は `九月一日` として読み上げます。
+OpenAI TTSへ渡す直前に、月日表記だけを読み上げ向けに正規化します。表示する原稿は変えず、たとえば `9月1日` は `九月一日`、`9月6日` は `九月むいか` として読み上げます。
+
+### 原稿のシナリオ確認
+
+実際の天気・予定を使わず、代表的な入力でOpenAIの原稿を確認できます。標準では音声を再生せず、`rain` シナリオを1回生成します。
+
+```bash
+pnpm briefing:sample
+```
+
+シナリオは `rain`（雨）、`busy`（予定が多い日）、`quiet`（予定なし）、`hot`（暑い日）、`all-day`（終日予定とメモ）です。全パターンを試す場合は、原稿生成が5回行われます。
+
+```bash
+pnpm briefing:sample -- --scenario=all
+```
+
+原稿に加えて読み上げも試す場合だけ、`--speech` を付けます。
+
+```bash
+pnpm briefing:sample -- --scenario=rain --speech
+```
 
 ### 声の比較
 

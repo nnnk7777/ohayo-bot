@@ -21,6 +21,7 @@ describe("runMorningBriefing", () => {
         rainProbability: 0,
       }),
     };
+    const holidayProvider = { isHoliday: vi.fn().mockResolvedValue(false) };
     const narrator = {
       narrate: vi.fn().mockResolvedValue("おはようございます。"),
     };
@@ -28,7 +29,7 @@ describe("runMorningBriefing", () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
 
     const briefing = await runMorningBriefing(
-      { scheduleProvider, weatherProvider, narrator, speaker },
+      { scheduleProvider, weatherProvider, holidayProvider, narrator, speaker },
       { today, speak: true },
     );
 
@@ -53,6 +54,7 @@ describe("runMorningBriefing", () => {
             rainProbability: 0,
           }),
         },
+        holidayProvider: { isHoliday: vi.fn().mockResolvedValue(false) },
         narrator: { narrate: vi.fn().mockResolvedValue("原稿です。") },
         speaker,
       },

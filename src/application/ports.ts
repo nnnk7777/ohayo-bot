@@ -13,6 +13,10 @@ export interface WeatherProvider {
   getWeather(today: Today): Promise<Weather>;
 }
 
+export interface HolidayProvider {
+  isHoliday(today: Today): Promise<boolean>;
+}
+
 export interface BriefingNarrator {
   narrate(plan: MorningBriefingPlan): Promise<string>;
 }

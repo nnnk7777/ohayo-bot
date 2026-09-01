@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "tsx src/cli/index.ts",
+    "briefing:sample": "tsx src/cli/briefingSample.ts",
     "voice:sample": "tsx src/cli/voiceSample.ts",
     "auth": "tsx src/cli/index.ts auth",
     "test": "vitest run",
