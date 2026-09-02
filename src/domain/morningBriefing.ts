@@ -29,7 +29,7 @@ export type MorningBriefingPlan = {
   date: string;
   locationName?: string;
   closing: {
-    kind: "weather-advice" | "neutral";
+    kind: "weather-advice" | "schedule-context" | "neutral";
     style?: "brief" | "gentle" | "plain";
   };
   weather: {
@@ -42,7 +42,6 @@ export type MorningBriefingPlan = {
   };
   agenda?: {
     items: Schedule[];
-    remainingCount: number;
   };
   weekdayFocus?: {
     period: "this-week" | "weekend-and-monday";
@@ -69,11 +68,11 @@ export function planMorningBriefing(input: {
   isHoliday?: boolean;
   upcomingScheduleDays?: UpcomingScheduleDay[];
 }): MorningBriefingPlan {
-  const schedulesToMention = input.schedules.slice(0, 3);
+  const schedulesToMention = input.schedules;
   const shouldBringUmbrella = input.isLikelyGoingOut !== false && (
     input.weather.condition === "rain" || input.weather.rainProbability >= 40
   );
-  const seasonalAdvice = seasonalAdviceFor(input.weather);
+  const seasonalAdvice = input.isLikelyGoingOut !== false ? seasonalAdviceFor(input.weather) : [];
   const weekdayFocus = input.isHoliday
     ? undefined
     : selectWeekdayFocus(input.date, input.upcomingScheduleDays ?? []);
@@ -84,6 +83,7 @@ export function planMorningBriefing(input: {
     closing: closingFor({
       date: input.date,
       hasWeatherAdvice: shouldBringUmbrella || seasonalAdvice.length > 0,
+      hasSchedules: input.schedules.length > 0,
     }),
     weather: {
       condition: conditionLabels[input.weather.condition],
@@ -99,7 +99,6 @@ export function planMorningBriefing(input: {
       schedulesToMention.length > 0
         ? {
             items: schedulesToMention,
-            remainingCount: input.schedules.length - schedulesToMention.length,
           }
         : undefined,
     weekdayFocus,
@@ -151,7 +150,7 @@ function targetDurationSeconds(input: {
     !input.hasSeasonalAdvice &&
     !input.hasWeekdayFocus
   ) return 20;
-  if (input.scheduleCount >= 4) return 55;
+  if (input.scheduleCount >= 4) return 70;
   if (input.scheduleCount >= 2) return 45;
   if (input.hasUmbrellaAdvice || input.hasSeasonalAdvice || input.hasWeekdayFocus) return 35;
   return 30;
@@ -180,8 +179,10 @@ function seasonalAdviceFor(weather: Weather): string[] {
 function closingFor(input: {
   date: string;
   hasWeatherAdvice: boolean;
+  hasSchedules: boolean;
 }): MorningBriefingPlan["closing"] {
   if (input.hasWeatherAdvice) return { kind: "weather-advice" };
+  if (input.hasSchedules) return { kind: "schedule-context" };
 
   return { kind: "neutral", style: neutralClosingStyleFor(input.date) };
 }

@@ -82,7 +82,7 @@ OpenAI TTSへ渡す直前に、月日表記だけを読み上げ向けに正規�
 pnpm briefing:sample
 ```
 
-シナリオは `rain`（雨）、`busy`（予定が多い日）、`quiet`（予定なし）、`hot`（暑い日）、`all-day`（終日予定とメモ）です。全パターンを試す場合は、原稿生成が5回行われます。
+シナリオには、雨と外出有無、予定多数、予定なし、暑さ・冷え込み・日差し・強風、終日予定、月曜・金曜の予定補足があります。全パターンを試す場合は、シナリオの数だけ原稿生成が行われます。
 
 ```bash
 pnpm briefing:sample -- --scenario=all
@@ -92,6 +92,12 @@ pnpm briefing:sample -- --scenario=all
 
 ```bash
 pnpm briefing:sample -- --scenario=rain --speech
+```
+
+シナリオが増えたら、対話モードで番号をカンマ区切りにして条件を複数選択できます。選んだ条件は一つの原稿へまとめられ、生成前に読み上げるかどうかも選べます。たとえば `rain`、`cold`、`busy` を選ぶと、「雨で寒く、予定が多い日」の原稿を確認できます。
+
+```bash
+pnpm briefing:sample -- --interactive
 ```
 
 ### 声の比較

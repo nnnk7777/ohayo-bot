@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { briefingScenarioNames, getBriefingScenario } from "./briefingScenarios.js";
+import { briefingScenarioNames, composeBriefingScenario, getBriefingScenario } from "./briefingScenarios.js";
 
 describe("briefing scenarios", () => {
   it("朝の原稿で確認したい代表パターンを持つ", () => {
@@ -29,8 +29,7 @@ describe("briefing scenarios", () => {
   });
 
   it("予定が多い日は、読み上げる予定と残り件数を持つ", () => {
-    expect(getBriefingScenario("busy").agenda).toMatchObject({ remainingCount: 3 });
-    expect(getBriefingScenario("busy").agenda?.items).toHaveLength(3);
+    expect(getBriefingScenario("busy").agenda?.items).toHaveLength(6);
   });
 
   it("予定なし・季節情報・終日予定をそれぞれ表現できる", () => {
@@ -46,5 +45,14 @@ describe("briefing scenarios", () => {
   it("月曜・金曜の先の予定を確認できる", () => {
     expect(getBriefingScenario("monday").weekdayFocus?.period).toBe("this-week");
     expect(getBriefingScenario("friday").weekdayFocus?.period).toBe("weekend-and-monday");
+  });
+
+  it("選択した条件を一つの原稿用プランへ合成できる", () => {
+    const plan = composeBriefingScenario(["rain", "cold", "busy"]);
+
+    expect(plan.weather.condition).toBe("雨");
+    expect(plan.weather.currentCelsius).toBe(5);
+    expect(plan.weather.umbrellaAdvice).toBeDefined();
+    expect(plan.agenda?.items).toHaveLength(5);
   });
 });

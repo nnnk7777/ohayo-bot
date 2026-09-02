@@ -34,10 +34,10 @@ describe("planMorningBriefing", () => {
         { title: "朝の予定", startTime: "09:00", isAllDay: false },
         { title: "昼の予定", startTime: "12:00", isAllDay: false },
         { title: "夕方の予定", startTime: "17:00", isAllDay: false },
+        { title: "夜の予定", startTime: "19:00", isAllDay: false },
       ],
-      remainingCount: 1,
     });
-    expect(plan.targetDurationSeconds).toBe(55);
+    expect(plan.targetDurationSeconds).toBe(70);
   });
 
   it("予定がない場合は予定の節を作らず、短い原稿を選ぶ", () => {
@@ -77,6 +77,16 @@ describe("planMorningBriefing", () => {
       kind: "neutral",
       style: "plain",
     });
+  });
+
+  it("天気の注意がない予定の日は、予定の文脈で締める", () => {
+    const plan = planMorningBriefing({
+      date: "2026-09-01",
+      weather: { condition: "clear", currentCelsius: 20, lowCelsius: 15, highCelsius: 25, rainProbability: 0 },
+      schedules: [{ title: "朝会", startTime: "09:00", isAllDay: false }],
+    });
+
+    expect(plan.closing).toEqual({ kind: "schedule-context" });
   });
 
   it("降水確率が低くても雨なら傘を案内する", () => {
@@ -168,6 +178,25 @@ describe("planMorningBriefing", () => {
     expect(goingOut.targetDurationSeconds).toBe(35);
     expect(stayingHome.weather.umbrellaAdvice).toBeUndefined();
     expect(stayingHome.targetDurationSeconds).toBe(20);
+  });
+
+  it("在宅想定では、強風など外出向けの季節情報を加えない", () => {
+    const plan = planMorningBriefing({
+      date: "2026-09-01",
+      weather: {
+        condition: "cloudy",
+        currentCelsius: 20,
+        lowCelsius: 15,
+        highCelsius: 25,
+        rainProbability: 0,
+        maxWindSpeedKmh: 35,
+      },
+      schedules: [],
+      isLikelyGoingOut: false,
+    });
+
+    expect(plan.weather.seasonalAdvice).toBeUndefined();
+    expect(plan.closing).toMatchObject({ kind: "neutral" });
   });
 
   it("月曜は今週最初の予定を補足し、原稿を少し長くする", () => {
