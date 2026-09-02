@@ -21,7 +21,7 @@ export class OpenAiBriefingNarrator implements BriefingNarrator {
     const response = await this.client.responses.create({
       model: this.profile.model,
       store: false,
-      max_output_tokens: 300,
+      max_output_tokens: 600,
       reasoning: { effort: "none" },
       text: { verbosity: "medium" },
       instructions: this.profile.instructions,
