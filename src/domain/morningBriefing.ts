@@ -6,6 +6,10 @@ export type Weather = {
   lowCelsius: number;
   highCelsius: number;
   rainProbability: number;
+  apparentLowCelsius?: number;
+  apparentHighCelsius?: number;
+  maxUvIndex?: number;
+  maxWindSpeedKmh?: number;
 };
 
 export type Schedule = {
@@ -24,12 +28,17 @@ export type UpcomingScheduleDay = {
 export type MorningBriefingPlan = {
   date: string;
   locationName?: string;
+  closing: {
+    kind: "weather-advice" | "neutral";
+    style?: "brief" | "gentle" | "plain";
+  };
   weather: {
     condition: string;
     currentCelsius: number;
     lowCelsius: number;
     highCelsius: number;
     umbrellaAdvice?: string;
+    seasonalAdvice?: string[];
   };
   agenda?: {
     items: Schedule[];
@@ -64,6 +73,7 @@ export function planMorningBriefing(input: {
   const shouldBringUmbrella = input.isLikelyGoingOut !== false && (
     input.weather.condition === "rain" || input.weather.rainProbability >= 40
   );
+  const seasonalAdvice = seasonalAdviceFor(input.weather);
   const weekdayFocus = input.isHoliday
     ? undefined
     : selectWeekdayFocus(input.date, input.upcomingScheduleDays ?? []);
@@ -71,6 +81,10 @@ export function planMorningBriefing(input: {
   return {
     date: input.date,
     locationName: input.locationName,
+    closing: closingFor({
+      date: input.date,
+      hasWeatherAdvice: shouldBringUmbrella || seasonalAdvice.length > 0,
+    }),
     weather: {
       condition: conditionLabels[input.weather.condition],
       currentCelsius: Math.round(input.weather.currentCelsius),
@@ -79,6 +93,7 @@ export function planMorningBriefing(input: {
       umbrellaAdvice: shouldBringUmbrella
         ? "雨の可能性があるため、傘があると安心です。"
         : undefined,
+      seasonalAdvice: seasonalAdvice.length > 0 ? seasonalAdvice : undefined,
     },
     agenda:
       schedulesToMention.length > 0
@@ -91,6 +106,7 @@ export function planMorningBriefing(input: {
     targetDurationSeconds: targetDurationSeconds({
       scheduleCount: input.schedules.length,
       hasUmbrellaAdvice: shouldBringUmbrella,
+      hasSeasonalAdvice: seasonalAdvice.length > 0,
       hasWeekdayFocus: Boolean(weekdayFocus),
     }),
   };
@@ -126,13 +142,54 @@ function selectWeekdayFocus(
 function targetDurationSeconds(input: {
   scheduleCount: number;
   hasUmbrellaAdvice: boolean;
+  hasSeasonalAdvice: boolean;
   hasWeekdayFocus: boolean;
 }): number {
-  if (input.scheduleCount === 0 && !input.hasUmbrellaAdvice && !input.hasWeekdayFocus) return 20;
+  if (
+    input.scheduleCount === 0 &&
+    !input.hasUmbrellaAdvice &&
+    !input.hasSeasonalAdvice &&
+    !input.hasWeekdayFocus
+  ) return 20;
   if (input.scheduleCount >= 4) return 55;
   if (input.scheduleCount >= 2) return 45;
-  if (input.hasUmbrellaAdvice || input.hasWeekdayFocus) return 35;
+  if (input.hasUmbrellaAdvice || input.hasSeasonalAdvice || input.hasWeekdayFocus) return 35;
   return 30;
+}
+
+function seasonalAdviceFor(weather: Weather): string[] {
+  const advice: string[] = [];
+
+  if (weather.apparentHighCelsius !== undefined && weather.apparentHighCelsius >= 32) {
+    advice.push("日中は体感的にも暑くなりそうです。");
+  } else if (weather.apparentLowCelsius !== undefined && weather.apparentLowCelsius <= 5) {
+    advice.push("朝晩は体感的に冷えそうです。");
+  }
+
+  if (weather.maxUvIndex !== undefined && weather.maxUvIndex >= 6) {
+    advice.push("日差しが強そうです。");
+  }
+
+  if (weather.maxWindSpeedKmh !== undefined && weather.maxWindSpeedKmh >= 30) {
+    advice.push("風が強まりそうです。");
+  }
+
+  return advice.slice(0, 2);
+}
+
+function closingFor(input: {
+  date: string;
+  hasWeatherAdvice: boolean;
+}): MorningBriefingPlan["closing"] {
+  if (input.hasWeatherAdvice) return { kind: "weather-advice" };
+
+  return { kind: "neutral", style: neutralClosingStyleFor(input.date) };
+}
+
+function neutralClosingStyleFor(date: string): "brief" | "gentle" | "plain" {
+  const dayOfMonth = Number(date.slice(-2));
+  const styles = ["brief", "gentle", "plain"] as const;
+  return styles[dayOfMonth % styles.length] ?? "plain";
 }
 
 function weekday(date: string): number {
