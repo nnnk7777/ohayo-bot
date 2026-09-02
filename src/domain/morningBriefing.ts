@@ -16,8 +16,14 @@ export type Schedule = {
   isAllDay: boolean;
 };
 
+export type UpcomingScheduleDay = {
+  date: string;
+  schedules: Schedule[];
+};
+
 export type MorningBriefingPlan = {
   date: string;
+  locationName?: string;
   weather: {
     condition: string;
     currentCelsius: number;
@@ -28,6 +34,11 @@ export type MorningBriefingPlan = {
   agenda?: {
     items: Schedule[];
     remainingCount: number;
+  };
+  weekdayFocus?: {
+    period: "this-week" | "weekend-and-monday";
+    date: string;
+    item: Schedule;
   };
   targetDurationSeconds: number;
 };
@@ -42,17 +53,24 @@ const conditionLabels: Record<WeatherCondition, string> = {
 
 export function planMorningBriefing(input: {
   date: string;
+  locationName?: string;
   weather: Weather;
   schedules: Schedule[];
   isLikelyGoingOut?: boolean;
+  isHoliday?: boolean;
+  upcomingScheduleDays?: UpcomingScheduleDay[];
 }): MorningBriefingPlan {
   const schedulesToMention = input.schedules.slice(0, 3);
   const shouldBringUmbrella = input.isLikelyGoingOut !== false && (
     input.weather.condition === "rain" || input.weather.rainProbability >= 40
   );
+  const weekdayFocus = input.isHoliday
+    ? undefined
+    : selectWeekdayFocus(input.date, input.upcomingScheduleDays ?? []);
 
   return {
     date: input.date,
+    locationName: input.locationName,
     weather: {
       condition: conditionLabels[input.weather.condition],
       currentCelsius: Math.round(input.weather.currentCelsius),
@@ -69,6 +87,60 @@ export function planMorningBriefing(input: {
             remainingCount: input.schedules.length - schedulesToMention.length,
           }
         : undefined,
-    targetDurationSeconds: input.schedules.length > 0 ? 45 : 30,
+    weekdayFocus,
+    targetDurationSeconds: targetDurationSeconds({
+      scheduleCount: input.schedules.length,
+      hasUmbrellaAdvice: shouldBringUmbrella,
+      hasWeekdayFocus: Boolean(weekdayFocus),
+    }),
   };
+}
+
+export function upcomingBriefingDates(date: string, isHoliday = false): string[] {
+  if (isHoliday) return [];
+
+  const dayOfWeek = weekday(date);
+  if (dayOfWeek === 1) return [1, 2, 3, 4, 5, 6].map((days) => addDays(date, days));
+  if (dayOfWeek === 5) return [1, 2, 3].map((days) => addDays(date, days));
+  return [];
+}
+
+function selectWeekdayFocus(
+  date: string,
+  upcomingScheduleDays: UpcomingScheduleDay[],
+): MorningBriefingPlan["weekdayFocus"] {
+  const period = weekday(date) === 1
+    ? "this-week"
+    : weekday(date) === 5
+      ? "weekend-and-monday"
+      : undefined;
+  if (!period) return undefined;
+
+  for (const day of upcomingScheduleDays) {
+    const item = day.schedules[0];
+    if (item) return { period, date: day.date, item };
+  }
+  return undefined;
+}
+
+function targetDurationSeconds(input: {
+  scheduleCount: number;
+  hasUmbrellaAdvice: boolean;
+  hasWeekdayFocus: boolean;
+}): number {
+  if (input.scheduleCount === 0 && !input.hasUmbrellaAdvice && !input.hasWeekdayFocus) return 20;
+  if (input.scheduleCount >= 4) return 55;
+  if (input.scheduleCount >= 2) return 45;
+  if (input.hasUmbrellaAdvice || input.hasWeekdayFocus) return 35;
+  return 30;
+}
+
+function weekday(date: string): number {
+  return new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
+}
+
+function addDays(date: string, days: number): string {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
 }

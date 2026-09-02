@@ -23,7 +23,7 @@ export class OpenAiBriefingNarrator implements BriefingNarrator {
       store: false,
       max_output_tokens: 300,
       reasoning: { effort: "none" },
-      text: { verbosity: "low" },
+      text: { verbosity: "medium" },
       instructions: this.profile.instructions,
       input: JSON.stringify(plan),
     });

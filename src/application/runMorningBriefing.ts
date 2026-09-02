@@ -1,4 +1,4 @@
-import { planMorningBriefing } from "../domain/morningBriefing.js";
+import { planMorningBriefing, upcomingBriefingDates } from "../domain/morningBriefing.js";
 import { isLikelyGoingOut } from "../domain/personalProfile/dailyRoutine.js";
 import type {
   BriefingNarrator,
@@ -19,18 +19,28 @@ type Dependencies = {
 
 export async function runMorningBriefing(
   dependencies: Dependencies,
-  options: { today: Today; speak: boolean },
+  options: { today: Today; speak: boolean; locationName?: string },
 ): Promise<string> {
   const [weather, schedules, isHoliday] = await Promise.all([
     dependencies.weatherProvider.getWeather(options.today),
     dependencies.scheduleProvider.getSchedules(options.today),
     dependencies.holidayProvider.isHoliday(options.today),
   ]);
+  const upcomingDates = upcomingBriefingDates(options.today.date, isHoliday);
+  const upcomingScheduleDays = await Promise.all(
+    upcomingDates.map(async (date) => ({
+      date,
+      schedules: await dependencies.scheduleProvider.getSchedules({ ...options.today, date }),
+    })),
+  );
 
   const plan = planMorningBriefing({
     date: options.today.date,
+    locationName: options.locationName,
     weather,
     schedules,
+    isHoliday,
+    upcomingScheduleDays,
     isLikelyGoingOut: isLikelyGoingOut({ date: options.today.date, isHoliday, schedules }),
   });
   const briefing = (await dependencies.narrator.narrate(plan)).trim();

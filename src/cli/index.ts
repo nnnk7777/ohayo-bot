@@ -32,6 +32,7 @@ async function main(): Promise<void> {
   console.log(`${config.location.name}の朝のブリーフィングを作成します…`);
   await runMorningBriefing(createDependencies(config), {
     today: { date: now.toISODate(), timeZone: config.timeZone },
+    locationName: config.location.name,
     speak: !args.includes("--no-speech"),
   });
 }
