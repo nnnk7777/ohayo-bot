@@ -10,6 +10,9 @@ describe("briefing scenarios", () => {
       "busy",
       "quiet",
       "hot",
+      "cold",
+      "sunny-uv",
+      "windy",
       "all-day",
       "monday",
       "friday",
@@ -30,9 +33,13 @@ describe("briefing scenarios", () => {
     expect(getBriefingScenario("busy").agenda?.items).toHaveLength(3);
   });
 
-  it("予定なし・暑さ・終日予定をそれぞれ表現できる", () => {
+  it("予定なし・季節情報・終日予定をそれぞれ表現できる", () => {
     expect(getBriefingScenario("quiet").agenda).toBeUndefined();
     expect(getBriefingScenario("hot").weather.highCelsius).toBe(35);
+    expect(getBriefingScenario("hot").weather.seasonalAdvice).toHaveLength(2);
+    expect(getBriefingScenario("cold").weather.seasonalAdvice).toEqual(["朝晩は体感的に冷えそうです。"]);
+    expect(getBriefingScenario("sunny-uv").weather.seasonalAdvice).toEqual(["日差しが強そうです。"]);
+    expect(getBriefingScenario("windy").weather.seasonalAdvice).toEqual(["風が強まりそうです。"]);
     expect(getBriefingScenario("all-day").agenda?.items[0]?.isAllDay).toBe(true);
   });
 
