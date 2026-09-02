@@ -54,9 +54,29 @@ describe("planMorningBriefing", () => {
     });
 
     expect(plan.weather.condition).toBe("晴れ");
+    expect(plan.closing).toEqual({ kind: "neutral", style: "gentle" });
     expect(plan.weather.umbrellaAdvice).toBeUndefined();
     expect(plan.agenda).toBeUndefined();
     expect(plan.targetDurationSeconds).toBe(20);
+  });
+
+  it("日付ごとにニュートラルな締めの方向性を変える", () => {
+    const weather = {
+      condition: "clear" as const,
+      currentCelsius: 20,
+      lowCelsius: 15,
+      highCelsius: 25,
+      rainProbability: 0,
+    };
+
+    expect(planMorningBriefing({ date: "2026-09-01", weather, schedules: [] }).closing).toEqual({
+      kind: "neutral",
+      style: "gentle",
+    });
+    expect(planMorningBriefing({ date: "2026-09-02", weather, schedules: [] }).closing).toEqual({
+      kind: "neutral",
+      style: "plain",
+    });
   });
 
   it("降水確率が低くても雨なら傘を案内する", () => {
@@ -73,7 +93,53 @@ describe("planMorningBriefing", () => {
     });
 
     expect(plan.weather.umbrellaAdvice).toBe("雨の可能性があるため、傘があると安心です。");
+    expect(plan.closing).toEqual({ kind: "weather-advice" });
     expect(plan.targetDurationSeconds).toBe(35);
+  });
+
+  it("暑さ・日差し・風の注意はしきい値を超えた場合だけ最大2件に絞る", () => {
+    const plan = planMorningBriefing({
+      date: "2026-09-01",
+      weather: {
+        condition: "clear",
+        currentCelsius: 28,
+        lowCelsius: 25,
+        highCelsius: 34,
+        rainProbability: 0,
+        apparentHighCelsius: 36,
+        maxUvIndex: 8,
+        maxWindSpeedKmh: 35,
+      },
+      schedules: [],
+    });
+
+    expect(plan.weather.seasonalAdvice).toEqual([
+      "日中は体感的にも暑くなりそうです。",
+      "日差しが強そうです。",
+    ]);
+    expect(plan.closing).toEqual({ kind: "weather-advice" });
+    expect(plan.targetDurationSeconds).toBe(35);
+  });
+
+  it("季節情報がしきい値未満なら注意を加えない", () => {
+    const plan = planMorningBriefing({
+      date: "2026-09-01",
+      weather: {
+        condition: "clear",
+        currentCelsius: 20,
+        lowCelsius: 16,
+        highCelsius: 24,
+        rainProbability: 0,
+        apparentLowCelsius: 12,
+        apparentHighCelsius: 25,
+        maxUvIndex: 4,
+        maxWindSpeedKmh: 20,
+      },
+      schedules: [],
+    });
+
+    expect(plan.weather.seasonalAdvice).toBeUndefined();
+    expect(plan.targetDurationSeconds).toBe(20);
   });
 
   it("雨でも外出の見込みに応じて傘の案内を切り替える", () => {

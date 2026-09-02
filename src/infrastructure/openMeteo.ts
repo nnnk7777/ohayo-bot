@@ -7,9 +7,13 @@ type OpenMeteoResponse = {
     weather_code?: number;
   };
   daily?: {
+    apparent_temperature_min?: number[];
+    apparent_temperature_max?: number[];
     temperature_2m_min?: number[];
     temperature_2m_max?: number[];
     precipitation_probability_max?: number[];
+    uv_index_max?: number[];
+    wind_speed_10m_max?: number[];
     weather_code?: number[];
   };
 };
@@ -28,7 +32,7 @@ export class OpenMeteoWeatherProvider implements WeatherProvider {
       end_date: today.date,
       current: "temperature_2m,weather_code",
       daily:
-        "weather_code,temperature_2m_min,temperature_2m_max,precipitation_probability_max",
+        "weather_code,temperature_2m_min,temperature_2m_max,apparent_temperature_min,apparent_temperature_max,precipitation_probability_max,uv_index_max,wind_speed_10m_max",
     });
     const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
       signal: AbortSignal.timeout(10_000),
@@ -61,6 +65,10 @@ export class OpenMeteoWeatherProvider implements WeatherProvider {
       lowCelsius: low,
       highCelsius: high,
       rainProbability,
+      apparentLowCelsius: data.daily?.apparent_temperature_min?.[0],
+      apparentHighCelsius: data.daily?.apparent_temperature_max?.[0],
+      maxUvIndex: data.daily?.uv_index_max?.[0],
+      maxWindSpeedKmh: data.daily?.wind_speed_10m_max?.[0],
     };
   }
 }
