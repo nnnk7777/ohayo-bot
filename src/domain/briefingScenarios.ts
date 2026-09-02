@@ -1,12 +1,23 @@
 import { planMorningBriefing, type MorningBriefingPlan } from "./morningBriefing.js";
 
-export const briefingScenarioNames = ["rain", "busy", "quiet", "hot", "all-day"] as const;
+export const briefingScenarioNames = [
+  "rain",
+  "rain-going-out",
+  "rain-staying-home",
+  "busy",
+  "quiet",
+  "hot",
+  "all-day",
+  "monday",
+  "friday",
+] as const;
 
 export type BriefingScenarioName = (typeof briefingScenarioNames)[number];
 
 const scenarios: Record<BriefingScenarioName, MorningBriefingPlan> = {
   rain: planMorningBriefing({
     date: "2026-09-02",
+    locationName: "武蔵野市",
     weather: {
       condition: "rain",
       currentCelsius: 19,
@@ -16,8 +27,35 @@ const scenarios: Record<BriefingScenarioName, MorningBriefingPlan> = {
     },
     schedules: [],
   }),
+  "rain-going-out": planMorningBriefing({
+    date: "2026-09-02",
+    locationName: "武蔵野市",
+    weather: {
+      condition: "rain",
+      currentCelsius: 19,
+      lowCelsius: 17,
+      highCelsius: 22,
+      rainProbability: 80,
+    },
+    schedules: [{ title: "外出予定", startTime: "10:00", isAllDay: false }],
+    isLikelyGoingOut: true,
+  }),
+  "rain-staying-home": planMorningBriefing({
+    date: "2026-09-02",
+    locationName: "武蔵野市",
+    weather: {
+      condition: "rain",
+      currentCelsius: 19,
+      lowCelsius: 17,
+      highCelsius: 22,
+      rainProbability: 80,
+    },
+    schedules: [],
+    isLikelyGoingOut: false,
+  }),
   busy: planMorningBriefing({
     date: "2026-09-03",
+    locationName: "武蔵野市",
     weather: {
       condition: "cloudy",
       currentCelsius: 23,
@@ -36,6 +74,7 @@ const scenarios: Record<BriefingScenarioName, MorningBriefingPlan> = {
   }),
   quiet: planMorningBriefing({
     date: "2026-09-04",
+    locationName: "武蔵野市",
     weather: {
       condition: "clear",
       currentCelsius: 24,
@@ -47,6 +86,7 @@ const scenarios: Record<BriefingScenarioName, MorningBriefingPlan> = {
   }),
   hot: planMorningBriefing({
     date: "2026-09-05",
+    locationName: "武蔵野市",
     weather: {
       condition: "clear",
       currentCelsius: 28,
@@ -58,6 +98,7 @@ const scenarios: Record<BriefingScenarioName, MorningBriefingPlan> = {
   }),
   "all-day": planMorningBriefing({
     date: "2026-09-06",
+    locationName: "武蔵野市",
     weather: {
       condition: "cloudy",
       currentCelsius: 22,
@@ -72,6 +113,36 @@ const scenarios: Record<BriefingScenarioName, MorningBriefingPlan> = {
         isAllDay: true,
       },
       { title: "夕食の予約", startTime: "19:00", isAllDay: false },
+    ],
+  }),
+  monday: planMorningBriefing({
+    date: "2026-09-07",
+    locationName: "武蔵野市",
+    weather: {
+      condition: "clear",
+      currentCelsius: 24,
+      lowCelsius: 20,
+      highCelsius: 29,
+      rainProbability: 0,
+    },
+    schedules: [],
+    upcomingScheduleDays: [
+      { date: "2026-09-09", schedules: [{ title: "企画レビュー", startTime: "10:00", isAllDay: false }] },
+    ],
+  }),
+  friday: planMorningBriefing({
+    date: "2026-09-11",
+    locationName: "武蔵野市",
+    weather: {
+      condition: "cloudy",
+      currentCelsius: 23,
+      lowCelsius: 20,
+      highCelsius: 27,
+      rainProbability: 20,
+    },
+    schedules: [],
+    upcomingScheduleDays: [
+      { date: "2026-09-14", schedules: [{ title: "歯科", startTime: "09:30", isAllDay: false }] },
     ],
   }),
 };

@@ -30,11 +30,14 @@ describe("runMorningBriefing", () => {
 
     const briefing = await runMorningBriefing(
       { scheduleProvider, weatherProvider, holidayProvider, narrator, speaker },
-      { today, speak: true },
+      { today, locationName: "武蔵野市", speak: true },
     );
 
     expect(briefing).toBe("おはようございます。");
-    expect(narrator.narrate).toHaveBeenCalledWith(expect.objectContaining({ date: today.date }));
+    expect(narrator.narrate).toHaveBeenCalledWith(expect.objectContaining({
+      date: today.date,
+      locationName: "武蔵野市",
+    }));
     expect(speaker.speak).toHaveBeenCalledWith("おはようございます。");
   });
 
@@ -62,5 +65,45 @@ describe("runMorningBriefing", () => {
     );
 
     expect(speaker.speak).not.toHaveBeenCalled();
+  });
+
+  it("月曜は今週の予定を取得し、最初の予定を原稿の補足へ渡す", async () => {
+    const scheduleProvider = {
+      getSchedules: vi.fn().mockImplementation(async (day: { date: string }) => (
+        day.date === "2026-09-09"
+          ? [{ title: "企画レビュー", startTime: "10:00", isAllDay: false }]
+          : []
+      )),
+    };
+    const narrator = { narrate: vi.fn().mockResolvedValue("今週の予定があります。") };
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await runMorningBriefing(
+      {
+        scheduleProvider,
+        weatherProvider: {
+          getWeather: vi.fn().mockResolvedValue({
+            condition: "clear",
+            currentCelsius: 24,
+            lowCelsius: 20,
+            highCelsius: 29,
+            rainProbability: 0,
+          }),
+        },
+        holidayProvider: { isHoliday: vi.fn().mockResolvedValue(false) },
+        narrator,
+        speaker: { speak: vi.fn().mockResolvedValue(undefined) },
+      },
+      { today: { date: "2026-09-07", timeZone: "Asia/Tokyo" }, speak: false },
+    );
+
+    expect(scheduleProvider.getSchedules).toHaveBeenCalledTimes(7);
+    expect(narrator.narrate).toHaveBeenCalledWith(expect.objectContaining({
+      weekdayFocus: expect.objectContaining({
+        period: "this-week",
+        date: "2026-09-09",
+        item: expect.objectContaining({ title: "企画レビュー" }),
+      }),
+    }));
   });
 });
