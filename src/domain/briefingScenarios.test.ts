@@ -3,11 +3,26 @@ import { briefingScenarioNames, getBriefingScenario } from "./briefingScenarios.
 
 describe("briefing scenarios", () => {
   it("朝の原稿で確認したい代表パターンを持つ", () => {
-    expect(briefingScenarioNames).toEqual(["rain", "busy", "quiet", "hot", "all-day"]);
+    expect(briefingScenarioNames).toEqual([
+      "rain",
+      "rain-going-out",
+      "rain-staying-home",
+      "busy",
+      "quiet",
+      "hot",
+      "all-day",
+      "monday",
+      "friday",
+    ]);
   });
 
   it("雨の日は傘を案内する事実を含む", () => {
     expect(getBriefingScenario("rain").weather.umbrellaAdvice).toBeDefined();
+  });
+
+  it("雨の日でも外出の見込みで傘の案内を切り替えられる", () => {
+    expect(getBriefingScenario("rain-going-out").weather.umbrellaAdvice).toBeDefined();
+    expect(getBriefingScenario("rain-staying-home").weather.umbrellaAdvice).toBeUndefined();
   });
 
   it("予定が多い日は、読み上げる予定と残り件数を持つ", () => {
@@ -19,5 +34,10 @@ describe("briefing scenarios", () => {
     expect(getBriefingScenario("quiet").agenda).toBeUndefined();
     expect(getBriefingScenario("hot").weather.highCelsius).toBe(35);
     expect(getBriefingScenario("all-day").agenda?.items[0]?.isAllDay).toBe(true);
+  });
+
+  it("月曜・金曜の先の予定を確認できる", () => {
+    expect(getBriefingScenario("monday").weekdayFocus?.period).toBe("this-week");
+    expect(getBriefingScenario("friday").weekdayFocus?.period).toBe("weekend-and-monday");
   });
 });
