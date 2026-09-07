@@ -15,9 +15,12 @@ Macで、今日の天気とGoogle Calendarの予定から朝の短い原稿を�
 pnpm install
 cp .env.example .env
 mkdir -p .secrets
+cp src/bootstrap/personalProfile.example.ts src/bootstrap/personalProfile.ts
 ```
 
 `.env` にOpenAI APIキー、天気を知りたい地点の緯度・経度、Google認証情報のパスを設定します。`.env` と `.secrets/` はGit管理されません。
+
+勤務曜日や今後追加する個人的な案内ルールは、`src/bootstrap/personalProfile.ts` に設定します。このファイルはGit管理されません。公開リポジトリには、雛形の [personalProfile.example.ts](src/bootstrap/personalProfile.example.ts) だけを含めます。`scheduleRules` では、朝に読み上げない予定、略称の言い換え、絵文字で表した予定の補助情報を設定できます。絵文字の意味はタイトルやメモより弱い情報として扱われます。
 
 ### Google Calendar OAuth
 

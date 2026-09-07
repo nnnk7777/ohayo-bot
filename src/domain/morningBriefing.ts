@@ -18,6 +18,8 @@ export type Schedule = {
   location?: string;
   startTime?: string;
   isAllDay: boolean;
+  requiresGoingOut?: boolean;
+  briefingHints?: string[];
 };
 
 export type UpcomingScheduleDay = {

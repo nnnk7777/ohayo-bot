@@ -8,6 +8,7 @@ ohayo-botは、毎朝の天気とGoogle Calendarの予定を短い日本語の�
 - TypeScript / ESM / pnpm を使う。実行前後の設定は `src/bootstrap`、外部サービスとの接続は `src/infrastructure`、判断ロジックは `src/domain` に置く。
 - APIキー、OAuthトークン、認証JSONはGit管理しない。`.env` と `.secrets/` の内容をログやコミットに含めない。
 - 音声の好み（モデル、声、話し方、速度）は秘密情報ではないため、`src/bootstrap/speechProfile.ts` でGit管理する。
+- 勤務曜日・最寄り駅などを含み得る個人プロフィールは、`src/bootstrap/personalProfile.ts` に置きGit管理しない。雛形の `personalProfile.example.ts` だけをGit管理する。
 
 ## 変更時の確認
 

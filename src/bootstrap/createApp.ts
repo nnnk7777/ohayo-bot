@@ -1,5 +1,6 @@
 import type { AppConfig } from "./config.js";
 import { morningBriefingProfile } from "./briefingProfile.js";
+import { personalProfile } from "./personalProfile.js";
 import { openAiTtsProfile } from "./speechProfile.js";
 import { GoogleCalendarScheduleProvider, GoogleJapaneseHolidayProvider } from "../infrastructure/googleCalendar.js";
 import { OpenMeteoWeatherProvider } from "../infrastructure/openMeteo.js";
@@ -9,6 +10,7 @@ import { MacSaySpeaker, OpenAiTtsSpeaker } from "../infrastructure/speech.js";
 
 export function createDependencies(config: AppConfig) {
   return {
+    personalProfile,
     scheduleProvider: new GoogleCalendarScheduleProvider(config.googleCalendar),
     holidayProvider: new GoogleJapaneseHolidayProvider(config.googleCalendar),
     weatherProvider: new OpenMeteoWeatherProvider(config.location),
