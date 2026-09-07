@@ -48,8 +48,8 @@ function speechEngine(): "macos" | "openai" {
 
 function audioPlayerPreference(): AudioPlayerPreference {
   const player = process.env.AUDIO_PLAYER?.trim() || "auto";
-  if (player === "auto" || player === "afplay" || player === "mpg123") return player;
-  throw new Error("環境変数 AUDIO_PLAYER は auto、afplay、mpg123 のいずれかにしてください。");
+  if (player === "auto" || player === "afplay" || player === "mpg123" || player === "termux-media-player") return player;
+  throw new Error("環境変数 AUDIO_PLAYER は auto、afplay、mpg123、termux-media-player のいずれかにしてください。");
 }
 
 export function loadGoogleCalendarConfig(): GoogleCalendarConfig {

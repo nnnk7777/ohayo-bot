@@ -55,7 +55,22 @@ pnpm dev
 SPEECH_ENGINE=openai
 ```
 
-OpenAI TTSの再生プレイヤーは標準でOSに合わせて選びます。macOSでは `afplay`、Linux（Raspberry Piを含む）では `mpg123` を使います。Linuxでは事前に `sudo apt install mpg123` を実行してください。
+OpenAI TTSの再生プレイヤーは標準でOSに合わせて選びます。macOSでは `afplay`、Linux（Raspberry Piを含む）では `mpg123`、AndroidのTermuxでは `termux-media-player` を使います。Linuxでは事前に `sudo apt install mpg123` を実行してください。AndroidではTermux本体と同じ配布元のTermux:APIアプリをインストールし、Termuxで `pkg install termux-api` を実行してください。
+
+### Android端末上での更新とビルド
+
+Termux上でも、Gitから更新して端末内でビルドできます。`.env`、`.secrets/`、`src/bootstrap/personalProfile.ts` はGit管理されないため、初回クローン後に端末へ配置し、そのまま保持してください。
+
+```bash
+cd ~/ohayo-bot
+git pull --ff-only
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm build
+```
+
+Termux版Node.jsでは、esbuildのインストール時検証がAndroidの実行方法と合わないため、依存関係の取得に `--ignore-scripts` を付けます。本番用ビルドはTypeScriptコンパイラだけを使うため、`dist` の生成と `pnpm start` には影響しません。TypeScriptはAndroidでも動作する純JavaScript版の5.9.3に固定し、メモリの少ない端末でもビルドできるよう `pnpm build` のヒープ上限を1.5GBに設定しています。
+
+`tsx`、Vitest、esbuildを使う開発・テストはMacで実行してください。Android端末はpull、依存関係の取得、本番ビルド、実行を担当する運用を推奨します。Macの `node_modules` はAndroidへコピーしないでください。
 
 Mac上でLinux用の再生経路を試す場合は、Homebrewで `mpg123` を入れ、`.env` に次を設定します。
 
@@ -136,7 +151,7 @@ pnpm start
 
 - `src/domain`: 朝に何を伝えるかを決める純粋なルール
 - `src/application`: 天気・予定取得から原稿・読み上げまでの順序
-- `src/infrastructure`: Google、Open-Meteo、OpenAI、macOS `say` の実装
+- `src/infrastructure`: Google、Open-Meteo、OpenAI、OSごとの音声再生の実装
 - `src/bootstrap`: `.env` と依存関係の組み立て
 - `src/cli`: コマンド引数の処理
 
