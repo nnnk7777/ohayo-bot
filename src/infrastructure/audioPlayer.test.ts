@@ -10,8 +10,13 @@ describe("resolveAudioPlayerCommand", () => {
     expect(resolveAudioPlayerCommand("auto", "linux")).toBe("mpg123");
   });
 
+  it("自動選択ではAndroidにtermux-media-playerを使う", () => {
+    expect(resolveAudioPlayerCommand("auto", "android")).toBe("termux-media-player");
+  });
+
   it("明示指定したプレイヤーをOSにかかわらず優先する", () => {
     expect(resolveAudioPlayerCommand("mpg123", "darwin")).toBe("mpg123");
+    expect(resolveAudioPlayerCommand("termux-media-player", "linux")).toBe("termux-media-player");
   });
 
   it("未対応のOSでは自動選択を拒否する", () => {

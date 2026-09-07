@@ -2,14 +2,12 @@ import { createServer } from "node:http";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { randomBytes } from "node:crypto";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { DateTime } from "luxon";
 import { google } from "googleapis";
 import type { Schedule } from "../domain/morningBriefing.js";
 import type { HolidayProvider, ScheduleProvider, Today } from "../application/ports.js";
+import { openUrl } from "./openUrl.js";
 
-const execFileAsync = promisify(execFile);
 const calendarScope = "https://www.googleapis.com/auth/calendar.readonly";
 const japaneseHolidayCalendarId = "ja.japanese#holiday@group.v.calendar.google.com";
 
@@ -146,7 +144,7 @@ export async function authorizeGoogleCalendar(config: GoogleCalendarConfig): Pro
         });
         console.log("ブラウザでGoogle Calendarの読み取りを許可してください。");
         console.log(authUrl);
-        await execFileAsync("open", [authUrl]);
+        await openUrl(authUrl);
       } catch (error) {
         server.close(() => reject(error));
       }
