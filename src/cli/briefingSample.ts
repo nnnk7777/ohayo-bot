@@ -10,6 +10,7 @@ import {
   getBriefingScenario,
   type BriefingScenarioName,
 } from "../domain/briefingScenarios.js";
+import { ensureMorningGreeting } from "../application/morningGreeting.js";
 
 async function main(): Promise<void> {
   let options = parseArgs(process.argv.slice(2).filter((arg) => arg !== "--"));
@@ -30,7 +31,7 @@ async function main(): Promise<void> {
     : options.scenarios.map((scenario) => ({ label: scenario, plan: getBriefingScenario(scenario) }));
 
   for (const { label, plan } of plans) {
-    const briefing = (await narrator.narrate(plan)).trim();
+    const briefing = ensureMorningGreeting(await narrator.narrate(plan));
     if (!briefing) throw new Error(`${label} の原稿生成に失敗しました。空の原稿が返されました。`);
 
     console.log(`\n--- ${label} ---\n\n${briefing}\n`);

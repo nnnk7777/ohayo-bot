@@ -77,7 +77,7 @@ export function planMorningBriefing(input: {
   const seasonalAdvice = input.isLikelyGoingOut !== false ? seasonalAdviceFor(input.weather) : [];
   const weekdayFocus = input.isHoliday
     ? undefined
-    : selectWeekdayFocus(input.date, input.upcomingScheduleDays ?? []);
+    : selectWeekdayFocus(input.date, schedulesToMention, input.upcomingScheduleDays ?? []);
 
   return {
     date: input.date,
@@ -124,6 +124,7 @@ export function upcomingBriefingDates(date: string, isHoliday = false): string[]
 
 function selectWeekdayFocus(
   date: string,
+  schedules: Schedule[],
   upcomingScheduleDays: UpcomingScheduleDay[],
 ): MorningBriefingPlan["weekdayFocus"] {
   const period = weekday(date) === 1
@@ -133,11 +134,31 @@ function selectWeekdayFocus(
       : undefined;
   if (!period) return undefined;
 
-  for (const day of upcomingScheduleDays) {
-    const item = day.schedules[0];
+  const scheduleDays = period === "this-week"
+    ? [{ date, schedules }, ...upcomingScheduleDays]
+    : upcomingScheduleDays;
+
+  for (const day of scheduleDays) {
+    const item = firstScheduleOfDay(day.schedules);
     if (item) return { period, date: day.date, item };
   }
   return undefined;
+}
+
+function firstScheduleOfDay(schedules: Schedule[]): Schedule | undefined {
+  return schedules.reduce<Schedule | undefined>((first, schedule) => {
+    if (!first) return schedule;
+    return scheduleOrder(schedule) < scheduleOrder(first) ? schedule : first;
+  }, undefined);
+}
+
+function scheduleOrder(schedule: Schedule): number {
+  if (schedule.isAllDay) return -1;
+  if (!schedule.startTime) return Number.POSITIVE_INFINITY;
+
+  const [hours, minutes] = schedule.startTime.split(":").map(Number);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return Number.POSITIVE_INFINITY;
+  return hours * 60 + minutes;
 }
 
 function targetDurationSeconds(input: {

@@ -9,6 +9,7 @@ import type {
   Today,
   WeatherProvider,
 } from "./ports.js";
+import { ensureMorningGreeting } from "./morningGreeting.js";
 
 type Dependencies = {
   personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: ScheduleRules };
@@ -54,7 +55,7 @@ export async function runMorningBriefing(
       dailyRoutine: dependencies.personalProfile.dailyRoutine,
     }),
   });
-  const briefing = (await dependencies.narrator.narrate(plan)).trim();
+  const briefing = ensureMorningGreeting(await dependencies.narrator.narrate(plan));
 
   if (!briefing) {
     throw new Error("原稿生成に失敗しました。空の原稿が返されました。");

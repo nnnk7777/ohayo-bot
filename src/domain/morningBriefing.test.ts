@@ -217,6 +217,43 @@ describe("planMorningBriefing", () => {
     expect(plan.targetDurationSeconds).toBe(35);
   });
 
+  it("月曜の当日に予定があれば翌日以降より先に今週最初の予定として扱う", () => {
+    const dinner = { title: "友人Aと食事", startTime: "22:00", isAllDay: false };
+    const plan = planMorningBriefing({
+      date: "2026-09-07",
+      weather: { condition: "cloudy", currentCelsius: 23, lowCelsius: 22, highCelsius: 24, rainProbability: 40 },
+      schedules: [dinner],
+      upcomingScheduleDays: [
+        { date: "2026-09-08", schedules: [{ title: "コミック5巻発売", isAllDay: true }] },
+      ],
+    });
+
+    expect(plan.weekdayFocus).toEqual({
+      period: "this-week",
+      date: "2026-09-07",
+      item: dinner,
+    });
+  });
+
+  it("月曜の当日予定が未整列でも時刻が最も早い予定を今週最初として扱う", () => {
+    const firstAppointment = { title: "美容院", startTime: "17:00", isAllDay: false };
+    const plan = planMorningBriefing({
+      date: "2026-09-07",
+      weather: { condition: "clear", currentCelsius: 25, lowCelsius: 22, highCelsius: 30, rainProbability: 10 },
+      schedules: [
+        { title: "友人Aと食事", startTime: "22:00", isAllDay: false },
+        firstAppointment,
+      ],
+      upcomingScheduleDays: [],
+    });
+
+    expect(plan.weekdayFocus).toEqual({
+      period: "this-week",
+      date: "2026-09-07",
+      item: firstAppointment,
+    });
+  });
+
   it("金曜は週末から翌月曜の最初の予定を補足する", () => {
     const plan = planMorningBriefing({
       date: "2026-09-11",
