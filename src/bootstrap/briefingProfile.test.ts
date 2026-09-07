@@ -10,6 +10,11 @@ describe("morningBriefingProfile", () => {
     expect(morningBriefingProfile.instructions).toContain("locationName");
     expect(morningBriefingProfile.instructions).toContain("現在の気温は19度です");
     expect(morningBriefingProfile.instructions).toContain("agenda.itemsに予定がある場合は");
+    expect(morningBriefingProfile.instructions).toContain("briefingHints");
+    expect(morningBriefingProfile.instructions).toContain("titleとdescriptionを優先してください");
+    expect(morningBriefingProfile.instructions).toContain("予約確認の可能性があります");
+    expect(morningBriefingProfile.instructions).toContain("家族やペットなどの個人的な背景");
+    expect(morningBriefingProfile.instructions).toContain("都道府県名または都市名だけを表す");
     expect(morningBriefingProfile.instructions).toContain("seasonalAdvice");
     expect(morningBriefingProfile.instructions).toContain("年は含めないでください");
     expect(morningBriefingProfile.instructions).toContain("closing.kind");

@@ -1,5 +1,6 @@
 import { planMorningBriefing, upcomingBriefingDates } from "../domain/morningBriefing.js";
-import { isLikelyGoingOut } from "../domain/personalProfile/dailyRoutine.js";
+import { isLikelyGoingOut, type DailyRoutine } from "../domain/personalProfile/dailyRoutine.js";
+import { applyScheduleRules, type ScheduleRules } from "../domain/personalProfile/scheduleRules.js";
 import type {
   BriefingNarrator,
   HolidayProvider,
@@ -10,6 +11,7 @@ import type {
 } from "./ports.js";
 
 type Dependencies = {
+  personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: ScheduleRules };
   scheduleProvider: ScheduleProvider;
   weatherProvider: WeatherProvider;
   holidayProvider: HolidayProvider;
@@ -21,16 +23,20 @@ export async function runMorningBriefing(
   dependencies: Dependencies,
   options: { today: Today; speak: boolean; locationName?: string },
 ): Promise<string> {
-  const [weather, schedules, isHoliday] = await Promise.all([
+  const [weather, rawSchedules, isHoliday] = await Promise.all([
     dependencies.weatherProvider.getWeather(options.today),
     dependencies.scheduleProvider.getSchedules(options.today),
     dependencies.holidayProvider.isHoliday(options.today),
   ]);
+  const schedules = applyScheduleRules(rawSchedules, dependencies.personalProfile.scheduleRules);
   const upcomingDates = upcomingBriefingDates(options.today.date, isHoliday);
   const upcomingScheduleDays = await Promise.all(
     upcomingDates.map(async (date) => ({
       date,
-      schedules: await dependencies.scheduleProvider.getSchedules({ ...options.today, date }),
+      schedules: applyScheduleRules(
+        await dependencies.scheduleProvider.getSchedules({ ...options.today, date }),
+        dependencies.personalProfile.scheduleRules,
+      ),
     })),
   );
 
@@ -41,7 +47,12 @@ export async function runMorningBriefing(
     schedules,
     isHoliday,
     upcomingScheduleDays,
-    isLikelyGoingOut: isLikelyGoingOut({ date: options.today.date, isHoliday, schedules }),
+    isLikelyGoingOut: isLikelyGoingOut({
+      date: options.today.date,
+      isHoliday,
+      schedules,
+      dailyRoutine: dependencies.personalProfile.dailyRoutine,
+    }),
   });
   const briefing = (await dependencies.narrator.narrate(plan)).trim();
 

@@ -2,6 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { runMorningBriefing } from "./runMorningBriefing.js";
 
 const today = { date: "2026-09-01", timeZone: "Asia/Tokyo" };
+const personalProfile = {
+  dailyRoutine: { officeWeekdays: [1, 3, 4] as const, remoteWeekdays: [2, 5] as const },
+  scheduleRules: {
+    excludedTitles: [], excludedTitleFragments: [], exactTitleRules: [], prefixRules: [],
+    suffixRules: [], personOnlyTitles: [],
+  },
+};
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -29,7 +36,7 @@ describe("runMorningBriefing", () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
 
     const briefing = await runMorningBriefing(
-      { scheduleProvider, weatherProvider, holidayProvider, narrator, speaker },
+      { personalProfile, scheduleProvider, weatherProvider, holidayProvider, narrator, speaker },
       { today, locationName: "武蔵野市", speak: true },
     );
 
@@ -47,6 +54,7 @@ describe("runMorningBriefing", () => {
 
     await runMorningBriefing(
       {
+        personalProfile,
         scheduleProvider: { getSchedules: vi.fn().mockResolvedValue([]) },
         weatherProvider: {
           getWeather: vi.fn().mockResolvedValue({
@@ -80,6 +88,7 @@ describe("runMorningBriefing", () => {
 
     await runMorningBriefing(
       {
+        personalProfile,
         scheduleProvider,
         weatherProvider: {
           getWeather: vi.fn().mockResolvedValue({
@@ -104,6 +113,44 @@ describe("runMorningBriefing", () => {
         date: "2026-09-09",
         item: expect.objectContaining({ title: "企画レビュー" }),
       }),
+    }));
+  });
+
+  it("個人用の予定ルールを適用してから原稿を作る", async () => {
+    const narrator = { narrate: vi.fn().mockResolvedValue("原稿です。") };
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await runMorningBriefing(
+      {
+        personalProfile: {
+          ...personalProfile,
+          scheduleRules: {
+            ...personalProfile.scheduleRules,
+            excludedTitles: ["💰節制モード"],
+            exactTitleRules: [{ title: "💈Roberts", briefingTitle: "美容院の予約", requiresGoingOut: true }],
+          },
+        },
+        scheduleProvider: {
+          getSchedules: vi.fn().mockResolvedValue([
+            { title: "💰節制モード", isAllDay: true },
+            { title: "💈Roberts", startTime: "11:00", isAllDay: false },
+          ]),
+        },
+        weatherProvider: {
+          getWeather: vi.fn().mockResolvedValue({
+            condition: "rain", currentCelsius: 20, lowCelsius: 18, highCelsius: 23, rainProbability: 70,
+          }),
+        },
+        holidayProvider: { isHoliday: vi.fn().mockResolvedValue(false) },
+        narrator,
+        speaker: { speak: vi.fn().mockResolvedValue(undefined) },
+      },
+      { today: { date: "2026-09-01", timeZone: "Asia/Tokyo" }, speak: false },
+    );
+
+    expect(narrator.narrate).toHaveBeenCalledWith(expect.objectContaining({
+      agenda: { items: [{ title: "美容院の予約", startTime: "11:00", isAllDay: false, requiresGoingOut: true }] },
+      weather: expect.objectContaining({ umbrellaAdvice: "雨の可能性があるため、傘があると安心です。" }),
     }));
   });
 });
