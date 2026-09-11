@@ -2,10 +2,34 @@ import type { Schedule } from "../morningBriefing.js";
 
 export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
+export type CommuteSegment = {
+  from: string;
+  to: string;
+  lineName: string;
+  source:
+    | { kind: "jr-east"; officialUrl: string }
+    | { kind: "tokyo-metro"; officialUrl: string; lineId: string };
+};
+
 export type DailyRoutine = {
   officeWeekdays: readonly Weekday[];
   remoteWeekdays: readonly Weekday[];
+  commute?: {
+    segments: readonly CommuteSegment[];
+  };
 };
+
+export function isOfficeDay(input: {
+  date: string;
+  isHoliday?: boolean;
+  schedules: Schedule[];
+  dailyRoutine: DailyRoutine;
+}): boolean {
+  if (input.isHoliday) return false;
+  if (input.schedules.some(isExplicitRemoteWork)) return false;
+  if (input.schedules.some(isExplicitOfficeWork)) return true;
+  return input.dailyRoutine.officeWeekdays.includes(weekday(input.date));
+}
 
 export function isLikelyGoingOut(input: {
   date: string;
@@ -22,6 +46,11 @@ export function isLikelyGoingOut(input: {
 function isExplicitRemoteWork(schedule: Schedule): boolean {
   const text = `${schedule.title}\n${schedule.description ?? ""}`.toLowerCase();
   return /在宅勤務|リモート勤務/.test(text);
+}
+
+function isExplicitOfficeWork(schedule: Schedule): boolean {
+  const text = `${schedule.title}\n${schedule.description ?? ""}`.toLowerCase();
+  return /出社|オフィス勤務/.test(text);
 }
 
 function hasOutsideSchedule(schedule: Schedule): boolean {

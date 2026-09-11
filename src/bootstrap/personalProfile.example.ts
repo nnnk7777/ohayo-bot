@@ -7,6 +7,19 @@ export const personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: Sched
     // 1=月曜, 2=火曜, ... 7=日曜
     officeWeekdays: [1, 3, 4],
     remoteWeekdays: [2, 5],
+    // 出社日のみ、各社の公式ページから運行情報を確認します。
+    commute: {
+      segments: [
+        // {
+        //   from: "出発駅",
+        //   to: "乗換駅",
+        //   lineName: "対象路線名",
+        //   source: { kind: "jr-east", officialUrl: "JR東日本の対象路線公式URL" },
+        //   // 東京メトロの場合は kind、officialUrl に加えて公式JSONの lineId も指定します。
+        //   // source: { kind: "tokyo-metro", officialUrl: "対象路線公式URL", lineId: "namboku" },
+        // },
+      ],
+    },
   },
   scheduleRules: {
     // 朝の原稿で伝える必要がないタイトル。完全一致で指定します。

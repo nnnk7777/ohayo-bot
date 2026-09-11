@@ -7,12 +7,14 @@ import { OpenMeteoWeatherProvider } from "../infrastructure/openMeteo.js";
 import { OpenAiBriefingNarrator } from "../infrastructure/openAiNarrator.js";
 import { createAudioPlayer } from "../infrastructure/audioPlayer.js";
 import { MacSaySpeaker, OpenAiTtsSpeaker } from "../infrastructure/speech.js";
+import { OfficialTrainStatusProvider } from "../infrastructure/officialTrainStatus.js";
 
 export function createDependencies(config: AppConfig) {
   return {
     personalProfile,
     scheduleProvider: new GoogleCalendarScheduleProvider(config.googleCalendar),
     holidayProvider: new GoogleJapaneseHolidayProvider(config.googleCalendar),
+    trainStatusProvider: new OfficialTrainStatusProvider(personalProfile.dailyRoutine.commute?.segments ?? []),
     weatherProvider: new OpenMeteoWeatherProvider(config.location),
     narrator: new OpenAiBriefingNarrator(config.openAiApiKey, morningBriefingProfile),
     speaker:
@@ -24,6 +26,7 @@ export function createDependencies(config: AppConfig) {
             openAiTtsProfile.instructions,
             openAiTtsProfile.speed,
             createAudioPlayer(config.speech.audioPlayer),
+            { playAt: config.speech.playAt, timeZone: config.timeZone },
           )
         : new MacSaySpeaker(),
   };

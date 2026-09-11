@@ -1,6 +1,7 @@
 import { planMorningBriefing, upcomingBriefingDates } from "../domain/morningBriefing.js";
-import { isLikelyGoingOut, type DailyRoutine } from "../domain/personalProfile/dailyRoutine.js";
+import { isLikelyGoingOut, isOfficeDay, type DailyRoutine } from "../domain/personalProfile/dailyRoutine.js";
 import { applyScheduleRules, type ScheduleRules } from "../domain/personalProfile/scheduleRules.js";
+import { commuteIssues } from "../domain/trainOperation.js";
 import type {
   BriefingNarrator,
   HolidayProvider,
@@ -8,6 +9,7 @@ import type {
   Speaker,
   Today,
   WeatherProvider,
+  TrainStatusProvider,
 } from "./ports.js";
 import { ensureMorningGreeting } from "./morningGreeting.js";
 
@@ -16,6 +18,7 @@ type Dependencies = {
   scheduleProvider: ScheduleProvider;
   weatherProvider: WeatherProvider;
   holidayProvider: HolidayProvider;
+  trainStatusProvider?: TrainStatusProvider;
   narrator: BriefingNarrator;
   speaker: Speaker;
 };
@@ -30,6 +33,19 @@ export async function runMorningBriefing(
     dependencies.holidayProvider.isHoliday(options.today),
   ]);
   const schedules = applyScheduleRules(rawSchedules, dependencies.personalProfile.scheduleRules);
+  const shouldCheckTrainStatus = Boolean(
+    dependencies.trainStatusProvider &&
+    dependencies.personalProfile.dailyRoutine.commute?.segments.length &&
+    isOfficeDay({
+      date: options.today.date,
+      isHoliday,
+      schedules,
+      dailyRoutine: dependencies.personalProfile.dailyRoutine,
+    }),
+  );
+  const trainStatuses = shouldCheckTrainStatus
+    ? await dependencies.trainStatusProvider!.getStatuses(options.today)
+    : [];
   const upcomingDates = upcomingBriefingDates(options.today.date, isHoliday);
   const upcomingScheduleDays = await Promise.all(
     upcomingDates.map(async (date) => ({
@@ -48,6 +64,7 @@ export async function runMorningBriefing(
     schedules,
     isHoliday,
     upcomingScheduleDays,
+    commuteIssues: commuteIssues(trainStatuses),
     isLikelyGoingOut: isLikelyGoingOut({
       date: options.today.date,
       isHoliday,

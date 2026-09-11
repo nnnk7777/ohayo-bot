@@ -22,6 +22,8 @@ cp src/bootstrap/personalProfile.example.ts src/bootstrap/personalProfile.ts
 
 勤務曜日や今後追加する個人的な案内ルールは、`src/bootstrap/personalProfile.ts` に設定します。このファイルはGit管理されません。公開リポジトリには、雛形の [personalProfile.example.ts](src/bootstrap/personalProfile.example.ts) だけを含めます。`scheduleRules` では、朝に読み上げない予定、略称の言い換え、絵文字で表した予定の補助情報を設定できます。絵文字の意味はタイトルやメモより弱い情報として扱われます。
 
+`dailyRoutine.commute.segments` に通勤区間とJR東日本または東京メトロの対象路線公式URLを設定すると、出社日だけ運行情報を確認します。遅延・運休などがある場合だけ原稿に含め、平常運転は読み上げません。取得失敗や更新時刻が古い場合は正常とみなさず、公式情報を確認できなかったことを伝えます。この案内は公式アプリや駅の案内を置き換えるものではありません。
+
 ### Google Calendar OAuth
 
 1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成します。
@@ -55,7 +57,18 @@ pnpm dev
 SPEECH_ENGINE=openai
 ```
 
-OpenAI TTSの再生プレイヤーは標準でOSに合わせて選びます。macOSでは `afplay`、Linux（Raspberry Piを含む）では `mpg123`、AndroidのTermuxでは `termux-media-player` を使います。Linuxでは事前に `sudo apt install mpg123` を実行してください。AndroidではTermux本体と同じ配布元のTermux:APIアプリをインストールし、Termuxで `pkg install termux-api` を実行してください。
+OpenAI TTSの再生プレイヤーは標準でOSに合わせて選びます。macOSでは `afplay`、Linux（Raspberry Piを含む）では `mpg123`、AndroidのTermuxでは `termux-media-player` を使います。Linuxでは事前に `sudo apt install mpg123 ffmpeg` を実行してください。macOSでは `brew install ffmpeg`、AndroidではTermux本体と同じ配布元のTermux:APIアプリをインストールしたうえで、Termuxから `pkg install termux-api ffmpeg` を実行してください。
+
+OpenAI TTSでは生成音声の末尾を検査し、締めが欠けていた場合に限り、時間の許す範囲で全文を最大2回再生成します。すべて欠けた場合でも、一つ前の文まで完全なら、Git管理された `assets/audio/generic-closing-zero-lead.wav` を自然な文間へ調整して連結します。生成音声・文字起こし・判定結果は、認証情報を含まないローカル診断データとして `~/.local/state/ohayo-bot/tts/` に権限を制限して保存され、14日を過ぎた実行分は次回生成時に削除されます。原稿には個人的な予定が含まれ得るため、このディレクトリを公開したりGitへ追加したりしないでください。
+
+Cronより少し前に生成を始め、指定時刻まで再生を待つ場合は、そのCronプロセスだけに `SPEECH_PLAY_AT=08:30` を設定します。手動実行では未設定のままにすると、準備が完了次第すぐ再生します。
+
+AndroidのTermuxで毎朝8:30に再生する場合は、Git管理されたランナーを配置して、2分前にCronを起動します。Termuxの最小Cron環境でもNode.jsのshebangを解決できるよう、ランナーが `LD_PRELOAD` を設定します。成功時の詳細ログは削除し、失敗時は `~/.local/state/ohayo-bot/current-run.log` に権限600で残します。
+
+```bash
+install -m 700 scripts/run-ohayo-bot-cron "$HOME/bin/run-ohayo-bot-cron"
+(crontab -l 2>/dev/null | grep -v 'run-ohayo-bot-cron'; printf '%s\n' '28 8 * * * /data/data/com.termux/files/home/bin/run-ohayo-bot-cron') | crontab -
+```
 
 ### Android端末上での更新とビルド
 

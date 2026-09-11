@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveAudioPlayerCommand } from "./audioPlayer.js";
+import { parseTermuxPlaybackStatus, resolveAudioPlayerCommand } from "./audioPlayer.js";
 
 describe("resolveAudioPlayerCommand", () => {
   it("自動選択ではmacOSにafplayを使う", () => {
@@ -21,5 +21,23 @@ describe("resolveAudioPlayerCommand", () => {
 
   it("未対応のOSでは自動選択を拒否する", () => {
     expect(() => resolveAudioPlayerCommand("auto", "win32")).toThrow("音声再生に対応していないOSです: win32");
+  });
+});
+
+describe("parseTermuxPlaybackStatus", () => {
+  it("再生中を判定する", () => {
+    expect(parseTermuxPlaybackStatus("Track: briefing.mp3\nStatus: Playing")).toBe("playing");
+  });
+
+  it("一時停止中もファイルを保持する", () => {
+    expect(parseTermuxPlaybackStatus("Track: briefing.mp3\nStatus: Paused")).toBe("playing");
+  });
+
+  it("トラックなしを再生終了と判定する", () => {
+    expect(parseTermuxPlaybackStatus("No track currently!")).toBe("stopped");
+  });
+
+  it("不明な出力を区別する", () => {
+    expect(parseTermuxPlaybackStatus("Termux:API is unavailable")).toBe("unknown");
   });
 });

@@ -27,5 +27,8 @@ describe("morningBriefingProfile", () => {
     expect(morningBriefingProfile.instructions).toContain("今日の予定として一度だけ述べ");
     expect(morningBriefingProfile.instructions).toContain("不自然で内容を伴わない定型句は使わない");
     expect(morningBriefingProfile.instructions).toContain("毎回違う言い回しを作る必要はありません");
+    expect(morningBriefingProfile.instructions).toContain("commuteがある場合だけ通勤路線について触れてください");
+    expect(morningBriefingProfile.instructions).toContain("stateがunknownなら");
+    expect(morningBriefingProfile.instructions).toContain("通常運行・平常運転など通勤路線の状態に一切触れない");
   });
 });

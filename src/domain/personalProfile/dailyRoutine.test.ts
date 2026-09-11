@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLikelyGoingOut } from "./dailyRoutine.js";
+import { isLikelyGoingOut, isOfficeDay } from "./dailyRoutine.js";
 
 const dailyRoutine = { officeWeekdays: [1, 3, 4] as const, remoteWeekdays: [2, 5] as const };
 
@@ -44,6 +44,28 @@ describe("dailyRoutine", () => {
         { title: "在宅勤務の日", isAllDay: true },
         { title: "歯科", isAllDay: false },
       ],
+      dailyRoutine,
+    })).toBe(true);
+  });
+
+  it("出社曜日だけを運行情報の確認対象にする", () => {
+    expect(isOfficeDay({ date: "2026-09-02", schedules: [], dailyRoutine })).toBe(true);
+    expect(isOfficeDay({ date: "2026-09-01", schedules: [], dailyRoutine })).toBe(false);
+    expect(isOfficeDay({ date: "2026-09-02", isHoliday: true, schedules: [], dailyRoutine })).toBe(false);
+  });
+
+  it("在宅勤務と明示した日は出社曜日でも対象外にする", () => {
+    expect(isOfficeDay({
+      date: "2026-09-02",
+      schedules: [{ title: "在宅勤務の日", isAllDay: true }],
+      dailyRoutine,
+    })).toBe(false);
+  });
+
+  it("出社予定があれば通常の出社曜日でなくても対象にする", () => {
+    expect(isOfficeDay({
+      date: "2026-09-01",
+      schedules: [{ title: "午後から出社", isAllDay: false }],
       dailyRoutine,
     })).toBe(true);
   });

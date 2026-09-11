@@ -217,4 +217,88 @@ describe("runMorningBriefing", () => {
       weather: expect.objectContaining({ umbrellaAdvice: "雨の可能性があるため、傘があると安心です。" }),
     }));
   });
+
+  it("出社日は運行情報を確認し、異常だけを原稿へ渡す", async () => {
+    const narrator = { narrate: vi.fn().mockResolvedValue("中央線に遅れがあります。") };
+    const trainStatusProvider = {
+      getStatuses: vi.fn().mockResolvedValue([
+        { lineName: "中央線快速電車", state: "disrupted", detail: "一部列車に遅れがでています。", sourceUrl: "https://example.com/jr" },
+        { lineName: "南北線", state: "normal", sourceUrl: "https://example.com/metro" },
+      ]),
+    };
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await runMorningBriefing(
+      {
+        personalProfile: {
+          ...personalProfile,
+          dailyRoutine: {
+            ...personalProfile.dailyRoutine,
+            commute: {
+              segments: [{
+                from: "三鷹", to: "四ツ谷", lineName: "中央線快速電車",
+                source: { kind: "jr-east", officialUrl: "https://example.com/jr" },
+              }],
+            },
+          },
+        },
+        scheduleProvider: { getSchedules: vi.fn().mockResolvedValue([]) },
+        weatherProvider: {
+          getWeather: vi.fn().mockResolvedValue({
+            condition: "clear", currentCelsius: 20, lowCelsius: 18, highCelsius: 25, rainProbability: 0,
+          }),
+        },
+        holidayProvider: { isHoliday: vi.fn().mockResolvedValue(false) },
+        trainStatusProvider,
+        narrator,
+        speaker: { speak: vi.fn().mockResolvedValue(undefined) },
+      },
+      { today: { date: "2026-09-09", timeZone: "Asia/Tokyo" }, speak: false },
+    );
+
+    expect(trainStatusProvider.getStatuses).toHaveBeenCalledOnce();
+    expect(narrator.narrate).toHaveBeenCalledWith(expect.objectContaining({
+      commute: {
+        issues: [expect.objectContaining({ lineName: "中央線快速電車", state: "disrupted" })],
+        guidance: expect.any(String),
+      },
+    }));
+  });
+
+  it("在宅勤務日は運行情報を取得しない", async () => {
+    const narrator = { narrate: vi.fn().mockResolvedValue("原稿です。") };
+    const trainStatusProvider = { getStatuses: vi.fn().mockResolvedValue([]) };
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await runMorningBriefing(
+      {
+        personalProfile: {
+          ...personalProfile,
+          dailyRoutine: {
+            ...personalProfile.dailyRoutine,
+            commute: {
+              segments: [{
+                from: "三鷹", to: "四ツ谷", lineName: "中央線快速電車",
+                source: { kind: "jr-east", officialUrl: "https://example.com/jr" },
+              }],
+            },
+          },
+        },
+        scheduleProvider: { getSchedules: vi.fn().mockResolvedValue([{ title: "在宅勤務", isAllDay: true }]) },
+        weatherProvider: {
+          getWeather: vi.fn().mockResolvedValue({
+            condition: "clear", currentCelsius: 20, lowCelsius: 18, highCelsius: 25, rainProbability: 0,
+          }),
+        },
+        holidayProvider: { isHoliday: vi.fn().mockResolvedValue(false) },
+        trainStatusProvider,
+        narrator,
+        speaker: { speak: vi.fn().mockResolvedValue(undefined) },
+      },
+      { today: { date: "2026-09-09", timeZone: "Asia/Tokyo" }, speak: false },
+    );
+
+    expect(trainStatusProvider.getStatuses).not.toHaveBeenCalled();
+    expect(narrator.narrate).toHaveBeenCalledWith(expect.not.objectContaining({ commute: expect.anything() }));
+  });
 });
