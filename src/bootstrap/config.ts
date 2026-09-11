@@ -7,6 +7,7 @@ export type AppConfig = {
   speech: {
     engine: "macos" | "openai";
     audioPlayer: AudioPlayerPreference;
+    playAt?: string;
   };
   location: {
     name: string;
@@ -29,6 +30,7 @@ export function loadConfig(): AppConfig {
     speech: {
       engine: speechEngine(),
       audioPlayer: audioPlayerPreference(),
+      playAt: speechPlayAt(),
     },
     location: {
       name: required("WEATHER_LOCATION_NAME"),
@@ -50,6 +52,13 @@ function audioPlayerPreference(): AudioPlayerPreference {
   const player = process.env.AUDIO_PLAYER?.trim() || "auto";
   if (player === "auto" || player === "afplay" || player === "mpg123" || player === "termux-media-player") return player;
   throw new Error("環境変数 AUDIO_PLAYER は auto、afplay、mpg123、termux-media-player のいずれかにしてください。");
+}
+
+function speechPlayAt(): string | undefined {
+  const value = process.env.SPEECH_PLAY_AT?.trim();
+  if (!value) return undefined;
+  if (/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) return value;
+  throw new Error("環境変数 SPEECH_PLAY_AT は HH:mm 形式で指定してください。");
 }
 
 export function loadGoogleCalendarConfig(): GoogleCalendarConfig {

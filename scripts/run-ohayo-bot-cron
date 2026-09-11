@@ -1,0 +1,48 @@
+#!/data/data/com.termux/files/usr/bin/sh
+
+set -u
+umask 077
+
+OHAYO_PROJECT_DIR="/data/data/com.termux/files/home/ohayo-bot"
+OHAYO_STATE_DIR="/data/data/com.termux/files/home/.local/state/ohayo-bot"
+OHAYO_STATUS_LOG="$OHAYO_STATE_DIR/cron-status.log"
+OHAYO_RUN_LOG="$OHAYO_STATE_DIR/current-run.log"
+OHAYO_LOCK_FILE="$OHAYO_STATE_DIR/run.lock"
+OHAYO_PATH="/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/bin/applets"
+OHAYO_LD_PRELOAD="/data/data/com.termux/files/usr/lib/libtermux-exec-ld-preload.so"
+
+mkdir -p "$OHAYO_STATE_DIR"
+
+if [ "${1:-}" = "--check" ]; then
+  test -d "$OHAYO_PROJECT_DIR"
+  test -x "/data/data/com.termux/files/usr/bin/pnpm"
+  test -x "/data/data/com.termux/files/usr/bin/flock"
+  test -x "/data/data/com.termux/files/usr/bin/ffmpeg"
+  test -x "/data/data/com.termux/files/usr/bin/ffprobe"
+  test -f "$OHAYO_LD_PRELOAD"
+  test -f "$OHAYO_PROJECT_DIR/assets/audio/generic-closing-zero-lead.wav"
+  printf '%s\n' "CRON_RUNNER_CHECK_OK"
+  exit 0
+fi
+
+printf '%s START\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" >> "$OHAYO_STATUS_LOG"
+
+PATH="$OHAYO_PATH" LD_PRELOAD="$OHAYO_LD_PRELOAD" /data/data/com.termux/files/usr/bin/flock \
+  -n -E 75 "$OHAYO_LOCK_FILE" \
+  /data/data/com.termux/files/usr/bin/sh -c \
+  '/data/data/com.termux/files/usr/bin/termux-media-player stop >/dev/null 2>&1 || true; cd /data/data/com.termux/files/home/ohayo-bot && exec /data/data/com.termux/files/usr/bin/env SPEECH_PLAY_AT=08:30 /data/data/com.termux/files/usr/bin/pnpm start' \
+  > "$OHAYO_RUN_LOG" 2>&1
+OHAYO_EXIT_CODE=$?
+
+if [ "$OHAYO_EXIT_CODE" -eq 0 ]; then
+  printf '%s OK\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" >> "$OHAYO_STATUS_LOG"
+  rm -f "$OHAYO_RUN_LOG"
+elif [ "$OHAYO_EXIT_CODE" -eq 75 ]; then
+  printf '%s SKIPPED_ALREADY_RUNNING\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" >> "$OHAYO_STATUS_LOG"
+  rm -f "$OHAYO_RUN_LOG"
+else
+  printf '%s FAILED exit=%s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$OHAYO_EXIT_CODE" >> "$OHAYO_STATUS_LOG"
+  chmod 600 "$OHAYO_RUN_LOG"
+fi
+
+exit "$OHAYO_EXIT_CODE"

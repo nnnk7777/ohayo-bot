@@ -1,3 +1,5 @@
+import type { CommuteIssue } from "./trainOperation.js";
+
 export type WeatherCondition = "clear" | "cloudy" | "rain" | "snow" | "other";
 
 export type Weather = {
@@ -50,6 +52,10 @@ export type MorningBriefingPlan = {
     date: string;
     item: Schedule;
   };
+  commute?: {
+    issues: CommuteIssue[];
+    guidance: string;
+  };
   targetDurationSeconds: number;
 };
 
@@ -69,6 +75,7 @@ export function planMorningBriefing(input: {
   isLikelyGoingOut?: boolean;
   isHoliday?: boolean;
   upcomingScheduleDays?: UpcomingScheduleDay[];
+  commuteIssues?: CommuteIssue[];
 }): MorningBriefingPlan {
   const schedulesToMention = input.schedules;
   const shouldBringUmbrella = input.isLikelyGoingOut !== false && (
@@ -104,11 +111,18 @@ export function planMorningBriefing(input: {
           }
         : undefined,
     weekdayFocus,
+    commute: input.commuteIssues && input.commuteIssues.length > 0
+      ? {
+          issues: input.commuteIssues,
+          guidance: "公式アプリや駅の案内もあわせて確認するための補助情報です。",
+        }
+      : undefined,
     targetDurationSeconds: targetDurationSeconds({
       scheduleCount: input.schedules.length,
       hasUmbrellaAdvice: shouldBringUmbrella,
       hasSeasonalAdvice: seasonalAdvice.length > 0,
       hasWeekdayFocus: Boolean(weekdayFocus),
+      hasCommuteIssue: Boolean(input.commuteIssues?.length),
     }),
   };
 }
@@ -166,16 +180,18 @@ function targetDurationSeconds(input: {
   hasUmbrellaAdvice: boolean;
   hasSeasonalAdvice: boolean;
   hasWeekdayFocus: boolean;
+  hasCommuteIssue: boolean;
 }): number {
   if (
     input.scheduleCount === 0 &&
     !input.hasUmbrellaAdvice &&
     !input.hasSeasonalAdvice &&
-    !input.hasWeekdayFocus
+    !input.hasWeekdayFocus &&
+    !input.hasCommuteIssue
   ) return 20;
   if (input.scheduleCount >= 4) return 70;
   if (input.scheduleCount >= 2) return 45;
-  if (input.hasUmbrellaAdvice || input.hasSeasonalAdvice || input.hasWeekdayFocus) return 35;
+  if (input.hasUmbrellaAdvice || input.hasSeasonalAdvice || input.hasWeekdayFocus || input.hasCommuteIssue) return 35;
   return 30;
 }
 

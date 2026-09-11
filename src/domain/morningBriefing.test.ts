@@ -272,4 +272,41 @@ describe("planMorningBriefing", () => {
     expect(upcomingBriefingDates("2026-09-08")).toEqual([]);
     expect(upcomingBriefingDates("2026-09-07", true)).toEqual([]);
   });
+
+  it("運行異常または確認不能だけを通勤情報として保持する", () => {
+    const plan = planMorningBriefing({
+      date: "2026-09-09",
+      weather: { condition: "clear", currentCelsius: 24, lowCelsius: 20, highCelsius: 29, rainProbability: 0 },
+      schedules: [],
+      commuteIssues: [
+        {
+          lineName: "中央線快速電車",
+          state: "disrupted",
+          detail: "一部列車に遅れがでています。",
+          sourceUrl: "https://example.com/jr",
+        },
+        {
+          lineName: "南北線",
+          state: "unknown",
+          detail: "公式情報を取得できませんでした。",
+          sourceUrl: "https://example.com/metro",
+        },
+      ],
+    });
+
+    expect(plan.commute?.issues).toHaveLength(2);
+    expect(plan.commute?.guidance).toContain("補助情報");
+    expect(plan.targetDurationSeconds).toBe(35);
+  });
+
+  it("通勤路線が平常なら通勤情報の節を作らない", () => {
+    const plan = planMorningBriefing({
+      date: "2026-09-09",
+      weather: { condition: "clear", currentCelsius: 24, lowCelsius: 20, highCelsius: 29, rainProbability: 0 },
+      schedules: [],
+      commuteIssues: [],
+    });
+
+    expect(plan.commute).toBeUndefined();
+  });
 });
