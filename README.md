@@ -169,3 +169,31 @@ pnpm start
 - `src/cli`: コマンド引数の処理
 
 `Speaker` という境界を設けているため、macOS `say` とOpenAI TTSを切り替えられます。将来はVOICEVOXなども追加できます。
+
+## エラーメール通知
+
+`.env.example` の `ERROR_REPORT_*` 設定を `.env` に設定します。送信先は、たとえば送信者のGmailアドレスに `+ohayo-bot` を付けたアドレスです。Google CloudでGmail APIを有効にし、`pnpm auth:mail` を実行して送信者のGoogleアカウントでメール送信を許可してください。カレンダーとは別のトークンを保存します。Androidにも設定と専用トークンの反映が必要です。準備できたら `ERROR_REPORT_EMAIL_ENABLED=true` にします。
+
+通常の朝の実行（`--no-speech` を含む）で、リトライしても残ったエラーを実行終了時に1通にまとめます。電車情報の取得失敗やTTS検査の失敗など、処理を続行できる部分失敗も対象です。リトライで正常復旧した場合は通知しません。通知は音声再生後に行い、予定内容・原稿・認証情報はメールに含めません。AI呼び出しは増えません。
+
+メール送信失敗時は、安全なレポートを `~/.local/state/ohayo-bot/error-reports/` に権限600で保存します。自動再送は行いません。メール失敗は朝の処理の終了結果を変えません。Cronが起動しない、Node.js起動前に失敗する、強制終了するケースは対象外です。認証とサンプルの操作では通知しません。
+
+## AndroidのSSH・Cron監視
+
+端末の `~/bin/ensure-ohayo-services` に `scripts/ensure-ohayo-services`、`~/bin/watch-ohayo-services` に `scripts/watch-ohayo-services`、`~/.termux/boot/start-ohayo-services` に `scripts/start-ohayo-services` を権限700で配置します。Termux:Bootから独立した復旧ループを開始し、1分おきに監視します。復旧は排他制御され、複数起動しても重複しません。
+
+監視はPIDの存在だけでなく、監視親の実行ファイル・引数とSSHのローカル応答を確認します。失敗した場合は監視親またはSSHを復旧し、原因と結果を `~/.local/state/ohayo-bot/service-watchdog.log` に記録します。詳細な起動エラーは `service-recovery-errors.log` に残します。監視親をSSHから切り離して起動し、孤立したSSH・Cronを引き継ぐ際には実行ファイルを検証します。
+
+補助としてCronで次を5分おきに実行します。朝のブリーフィングの既存エントリは維持します。
+
+```cron
+*/5 * * * * /data/data/com.termux/files/usr/bin/timeout 50 /data/data/com.termux/files/usr/bin/sh /data/data/com.termux/files/home/bin/ensure-ohayo-services cron >/dev/null 2>&1
+```
+
+AndroidのJobSchedulerは復旧補助として15分間隔、再起動後も保持、ネットワーク・低バッテリーの制約なしで登録します。JobSchedulerのタイミングは厳密ではないため、毎朝の実行時刻の管理はCronに任せます。
+
+```sh
+termux-job-scheduler --script /data/data/com.termux/files/home/bin/ensure-ohayo-services --job-id 830 --period-ms 900000 --persisted true --network none --battery-not-low false
+```
+
+手動復旧は `~/.termux/boot/start-ohayo-services` を実行します。状態は `sv status "$PREFIX/var/service/sshd" "$PREFIX/var/service/crond"` と監視ログで確認します。AndroidがTermux全体を強制停止した場合やWi-FiのIPが変わった場合には、この監視だけでは外部からの接続を保証できません。

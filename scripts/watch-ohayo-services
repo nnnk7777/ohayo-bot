@@ -1,0 +1,17 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -u
+umask 077
+OHAYO_PREFIX=/data/data/com.termux/files/usr
+OHAYO_HOME=/data/data/com.termux/files/home
+OHAYO_STATE="$OHAYO_HOME/.local/state/ohayo-bot"
+export PATH="$OHAYO_PREFIX/bin:$OHAYO_PREFIX/bin/applets"
+export LD_PRELOAD="$OHAYO_PREFIX/lib/libtermux-exec-ld-preload.so"
+mkdir -p "$OHAYO_STATE"
+exec 8>"$OHAYO_STATE/services-watch-loop.lock"
+flock -n 8 || exit 0
+printf '%s\n' "$$" > "$OHAYO_STATE/services-watch-loop.pid"
+# Separate from runsvdir: a dead runit parent does not stop recovery.
+while :; do
+  timeout 50 "$OHAYO_HOME/bin/ensure-ohayo-services" loop </dev/null >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 || true
+  sleep 60
+done

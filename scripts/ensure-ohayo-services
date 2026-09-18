@@ -1,0 +1,79 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -u
+umask 077
+OHAYO_PREFIX=/data/data/com.termux/files/usr
+OHAYO_HOME=/data/data/com.termux/files/home
+OHAYO_STATE="$OHAYO_HOME/.local/state/ohayo-bot"
+SVDIR="$OHAYO_PREFIX/var/service"
+LOGDIR="$OHAYO_PREFIX/var/log"
+export SVDIR LOGDIR
+export PATH="$OHAYO_PREFIX/bin:$OHAYO_PREFIX/bin/applets"
+export LD_PRELOAD="$OHAYO_PREFIX/lib/libtermux-exec-ld-preload.so"
+mkdir -p "$OHAYO_STATE" "$OHAYO_PREFIX/var/run"
+exec 9>"$OHAYO_STATE/services-recovery.lock"
+flock -n 9 || exit 0
+log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$*" >> "$OHAYO_STATE/service-watchdog.log"; }
+# A recycled PID must not be mistaken for the supervisor.
+manager_alive() {
+  [ -r "$OHAYO_PREFIX/var/run/service-daemon.pid" ] || return 1
+  OHAYO_MANAGER_PID=$(cat "$OHAYO_PREFIX/var/run/service-daemon.pid")
+  case "$OHAYO_MANAGER_PID" in ''|*[!0-9]*) return 1;; esac
+  kill -0 "$OHAYO_MANAGER_PID" 2>/dev/null || return 1
+  [ "$(readlink "/proc/$OHAYO_MANAGER_PID/exe" 2>/dev/null)" = "$OHAYO_PREFIX/bin/runsvdir" ] || return 1
+  tr '\000' ' ' < "/proc/$OHAYO_MANAGER_PID/cmdline" 2>/dev/null | grep -F "$SVDIR" >/dev/null
+}
+termux-wake-lock >/dev/null 2>&1 || log 'wake_lock=failed'
+if ! manager_alive; then
+  # Adopt an existing correct supervisor rather than starting a duplicate.
+  OHAYO_EXISTING=$(pgrep -f "^$OHAYO_PREFIX/bin/runsvdir $SVDIR$" | head -n 1)
+  if [ -n "$OHAYO_EXISTING" ]; then
+    printf '%s\n' "$OHAYO_EXISTING" > "$OHAYO_PREFIX/var/run/service-daemon.pid"
+    log 'manager=adopted'
+  else
+    # Reclaim only verified listeners left behind without a runsv owner.
+    for OHAYO_SERVICE in sshd crond; do
+      if ! sv status "$SVDIR/$OHAYO_SERVICE" >/dev/null 2>&1; then
+        case "$OHAYO_SERVICE" in sshd) OHAYO_PATTERN='^sshd -D -e$';; crond) OHAYO_PATTERN='^crond -n -s$';; esac
+        for OHAYO_ORPHAN in $(pgrep -f "$OHAYO_PATTERN"); do
+          if [ "$(readlink "/proc/$OHAYO_ORPHAN/exe" 2>/dev/null)" = "$OHAYO_PREFIX/bin/$OHAYO_SERVICE" ]; then
+            kill -TERM "$OHAYO_ORPHAN" 2>/dev/null || true
+            log "$OHAYO_SERVICE=orphan_reclaimed"
+          fi
+        done
+      fi
+    done
+    rm -f "$OHAYO_PREFIX/var/run/service-daemon.pid"
+    # Detach from SSH and never pass recovery/loop locks into the supervisor.
+    nohup "$OHAYO_PREFIX/bin/runsvdir" "$SVDIR" 8>&- 9>&- </dev/null >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 &
+    printf '%s\n' "$!" > "$OHAYO_PREFIX/var/run/service-daemon.pid"
+    log 'manager=started'
+
+  fi
+fi
+OHAYO_ATTEMPT=0
+while [ "$OHAYO_ATTEMPT" -lt 10 ]; do
+  sv status "$SVDIR/sshd" >/dev/null 2>&1 && sv status "$SVDIR/crond" >/dev/null 2>&1 && break
+  OHAYO_ATTEMPT=$((OHAYO_ATTEMPT + 1))
+  sleep 1
+done
+sv -w 10 up "$SVDIR/crond" >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 || log 'crond=start_failed'
+sv -w 10 up "$SVDIR/sshd" >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 || log 'sshd=start_failed'
+OHAYO_PROBE="$OHAYO_STATE/ssh-probe-$$"
+trap 'rm -f "$OHAYO_PROBE"' EXIT HUP INT TERM
+ssh_probe() {
+  timeout 5 ssh-keyscan -t ed25519 -T 3 -p 8022 127.0.0.1 > "$OHAYO_PROBE" 2>/dev/null
+  [ -s "$OHAYO_PROBE" ]
+}
+if ! ssh_probe; then
+  log 'ssh_probe=failed action=restart'
+  sv -w 10 restart "$SVDIR/sshd" >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 || log 'sshd=restart_failed'
+  sleep 1
+fi
+OHAYO_SSH=down
+OHAYO_CRON=down
+case "$(sv status "$SVDIR/sshd" 2>&1)" in run:*) ssh_probe && OHAYO_SSH=up;; esac
+case "$(sv status "$SVDIR/crond" 2>&1)" in run:*) OHAYO_CRON=up;; esac
+OHAYO_MANAGER=down
+manager_alive && OHAYO_MANAGER=up
+log "manager=$OHAYO_MANAGER crond=$OHAYO_CRON sshd=$OHAYO_SSH source=${1:-manual}"
+[ "$OHAYO_MANAGER" = up ] && [ "$OHAYO_CRON" = up ] && [ "$OHAYO_SSH" = up ]
