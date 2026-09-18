@@ -85,7 +85,7 @@ export class GoogleJapaneseHolidayProvider implements HolidayProvider {
   }
 }
 
-export async function authorizeGoogleCalendar(config: GoogleCalendarConfig): Promise<void> {
+export async function authorizeGoogleCalendar(config: GoogleCalendarConfig, scope = calendarScope): Promise<void> {
   const credentials = await loadClientCredentials(config.credentialsPath);
   const state = randomBytes(24).toString("hex");
 
@@ -139,10 +139,10 @@ export async function authorizeGoogleCalendar(config: GoogleCalendarConfig): Pro
         const authUrl = client.generateAuthUrl({
           access_type: "offline",
           prompt: "consent",
-          scope: [calendarScope],
+          scope: [scope],
           state,
         });
-        console.log("ブラウザでGoogle Calendarの読み取りを許可してください。");
+        console.log("ブラウザでGoogleのアクセス権を許可してください。");
         console.log(authUrl);
         await openUrl(authUrl);
       } catch (error) {
@@ -152,16 +152,16 @@ export async function authorizeGoogleCalendar(config: GoogleCalendarConfig): Pro
   });
 }
 
-async function getAuthorizedClient(config: GoogleCalendarConfig): Promise<OAuthClient> {
+export async function getAuthorizedClient(config: GoogleCalendarConfig): Promise<OAuthClient> {
   const client = await createOAuthClient(config.credentialsPath, "http://127.0.0.1");
   let token: unknown;
   try {
     token = JSON.parse(await readFile(config.tokenPath, "utf8"));
   } catch {
-    throw new Error("Google Calendarの認証がまだです。先に pnpm auth を実行してください。");
+    throw new Error("Googleの認証ファイルを読めません。対応する認証コマンドを実行してください。");
   }
   if (!hasRefreshToken(token)) {
-    throw new Error("Googleの更新トークンが見つかりません。pnpm auth を実行し直してください。");
+    throw new Error("Googleの更新トークンが見つかりません。対応する認証コマンドを実行し直してください。");
   }
   client.setCredentials(token);
   return client;

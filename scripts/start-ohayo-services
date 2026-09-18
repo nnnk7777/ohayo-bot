@@ -1,0 +1,12 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -u
+umask 077
+OHAYO_HOME=/data/data/com.termux/files/home
+OHAYO_PREFIX=/data/data/com.termux/files/usr
+OHAYO_STATE="$OHAYO_HOME/.local/state/ohayo-bot"
+export PATH="$OHAYO_PREFIX/bin:$OHAYO_PREFIX/bin/applets"
+export LD_PRELOAD="$OHAYO_PREFIX/lib/libtermux-exec-ld-preload.so"
+mkdir -p "$OHAYO_STATE"
+# The loop lock makes repeated boot/manual launches harmless.
+nohup "$OHAYO_HOME/bin/watch-ohayo-services" </dev/null >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 &
+exec "$OHAYO_HOME/bin/ensure-ohayo-services" boot

@@ -1,3 +1,4 @@
+import type { IssueRecorder } from "../domain/errorReport.js";
 import { DateTime } from "luxon";
 import type { Today, TrainStatusProvider } from "../application/ports.js";
 import type { CommuteSegment } from "../domain/personalProfile/dailyRoutine.js";
@@ -26,6 +27,7 @@ export class OfficialTrainStatusProvider implements TrainStatusProvider {
     private readonly segments: readonly CommuteSegment[],
     private readonly fetcher: Fetcher = fetch,
     private readonly now: () => Date = () => new Date(),
+    private readonly recordIssue?: IssueRecorder,
   ) {}
 
   async getStatuses(today: Today): Promise<TrainOperationStatus[]> {
@@ -55,6 +57,7 @@ export class OfficialTrainStatusProvider implements TrainStatusProvider {
           );
       const ageMinutes = DateTime.fromJSDate(this.now(), { zone: today.timeZone }).diff(parsed.checkedAt, "minutes").minutes;
       if (ageMinutes < -5 || ageMinutes > maximumAgeMinutes) {
+        this.recordIssue?.("電車情報取得", "STALE_INFORMATION");
         return unknownStatus(segment, "公式情報の更新時刻が古いため、現在の運行状況を確認できませんでした。");
       }
 
@@ -66,6 +69,7 @@ export class OfficialTrainStatusProvider implements TrainStatusProvider {
         sourceUrl: segment.source.officialUrl,
       };
     } catch {
+      this.recordIssue?.("電車情報取得", "FETCH_OR_PARSE_FAILED");
       return unknownStatus(segment, "公式情報を取得できず、現在の運行状況を確認できませんでした。");
     }
   }

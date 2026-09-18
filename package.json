@@ -11,6 +11,7 @@
     "briefing:sample": "tsx src/cli/briefingSample.ts",
     "voice:sample": "tsx src/cli/voiceSample.ts",
     "auth": "tsx src/cli/index.ts auth",
+    "auth:mail": "tsx src/cli/index.ts auth:mail",
     "test": "vitest run",
     "build": "node --max-old-space-size=1536 ./node_modules/typescript/bin/tsc",
     "start": "node dist/cli/index.js",

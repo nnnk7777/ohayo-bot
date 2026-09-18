@@ -1,3 +1,4 @@
+import type { IssueRecorder } from "../domain/errorReport.js";
 import { spawn } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { chmod, copyFile, mkdir, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
@@ -22,6 +23,7 @@ const DEFAULT_CLOSING_AUDIO_PATH = fileURLToPath(
 const DEFAULT_DIAGNOSTIC_RETENTION_DAYS = 14;
 
 type OpenAiTtsSpeakerOptions = {
+  recordIssue?: IssueRecorder;
   maxAttempts?: number;
   preparationBudgetMs?: number;
   playAt?: string;
@@ -38,6 +40,7 @@ type TtsCandidate = {
   assessment?: TtsTranscriptAssessment;
   transcript?: string;
   trailingSilenceMs?: number;
+  issues?: string[];
 };
 
 export class MacSaySpeaker implements Speaker {
@@ -126,6 +129,8 @@ export class OpenAiTtsSpeaker implements Speaker {
 
       if (candidates.length === 0) throw lastError ?? new Error("音声を生成できませんでした。");
       const bestCandidate = selectBestCandidate(candidates);
+      for (const code of bestCandidate.issues ?? []) this.options.recordIssue?.("TTS検査", code);
+      if (bestCandidate.assessment?.hasClosing === false) this.options.recordIssue?.("TTS生成", "CLOSING_MISSING");
       const playablePath = await this.prepareFallbackIfNeeded(bestCandidate, directory, diagnosticDirectory);
       await this.writeDiagnosticMetadata(diagnosticDirectory, {
         startedAt: new Date(startedAt).toISOString(),
@@ -160,6 +165,7 @@ export class OpenAiTtsSpeaker implements Speaker {
     deadline: number;
     now: () => number;
   }): Promise<TtsCandidate> {
+    const issues: string[] = [];
     const tailPath = join(options.directory, `tail-${options.attempt}.wav`);
     let transcriptionPath = options.audioPath;
     try {
@@ -170,7 +176,7 @@ export class OpenAiTtsSpeaker implements Speaker {
     }
 
     if (Number.isFinite(options.deadline) && options.deadline - options.now() < 5_000) {
-      return { attempt: options.attempt, audioPath: options.audioPath };
+      return { attempt: options.attempt, audioPath: options.audioPath, issues: ["VALIDATION_SKIPPED"] };
     }
 
     try {
@@ -186,7 +192,9 @@ export class OpenAiTtsSpeaker implements Speaker {
       if (options.diagnosticDirectory) {
         await writeFile(join(options.diagnosticDirectory, `attempt-${options.attempt}-transcript.txt`), transcript.text, { mode: 0o600 });
       }
+      if (trailingSilenceMs === undefined) issues.push("SILENCE_MEASUREMENT_FAILED");
       return {
+        issues,
         attempt: options.attempt,
         audioPath: options.audioPath,
         assessment: assessTtsTranscript(options.expectedText, transcript.text),
@@ -195,7 +203,7 @@ export class OpenAiTtsSpeaker implements Speaker {
       };
     } catch (error) {
       console.warn(`TTS末尾の自動検査に失敗したため、生成済み音声をそのまま使用します: ${errorMessage(error)}`);
-      return { attempt: options.attempt, audioPath: options.audioPath };
+      return { attempt: options.attempt, audioPath: options.audioPath, issues: ["VALIDATION_FAILED"] };
     }
   }
 
@@ -220,6 +228,7 @@ export class OpenAiTtsSpeaker implements Speaker {
       await this.copyDiagnosticFile(outputPath, diagnosticDirectory, "selected-with-fallback.mp3");
       return outputPath;
     } catch (error) {
+      this.options.recordIssue?.("TTS補完", "APPEND_FAILED");
       console.warn(`汎用の締め挨拶を連結できなかったため、最良の生成音声を使用します: ${errorMessage(error)}`);
       return candidate.audioPath;
     }
@@ -235,12 +244,14 @@ export class OpenAiTtsSpeaker implements Speaker {
         const cutoffMs = startedAt - DEFAULT_DIAGNOSTIC_RETENTION_DAYS * 24 * 60 * 60 * 1_000;
         await cleanupExpiredDiagnosticDirectories(root, cutoffMs);
       } catch (error) {
-        console.warn(`古いTTS診断データを削除できませんでした: ${errorMessage(error)}`);
+        this.options.recordIssue?.("TTS診断保存", "CLEANUP_FAILED");
+      console.warn(`古いTTS診断データを削除できませんでした: ${errorMessage(error)}`);
       }
       await mkdir(directory, { recursive: true, mode: 0o700 });
       await writeFile(join(directory, "input.txt"), text, { mode: 0o600 });
       return directory;
     } catch (error) {
+      this.options.recordIssue?.("TTS診断保存", "DIRECTORY_FAILED");
       console.warn(`TTS診断データの保存先を作成できませんでした: ${errorMessage(error)}`);
       return undefined;
     }
@@ -253,6 +264,7 @@ export class OpenAiTtsSpeaker implements Speaker {
       await copyFile(source, destination);
       await chmod(destination, 0o600);
     } catch (error) {
+      this.options.recordIssue?.("TTS診断保存", "AUDIO_SAVE_FAILED");
       console.warn(`TTS診断用の音声を保存できませんでした: ${errorMessage(error)}`);
     }
   }
@@ -262,6 +274,7 @@ export class OpenAiTtsSpeaker implements Speaker {
     try {
       await writeFile(join(directory, "metadata.json"), JSON.stringify(metadata, null, 2), { mode: 0o600 });
     } catch (error) {
+      this.options.recordIssue?.("TTS診断保存", "METADATA_SAVE_FAILED");
       console.warn(`TTS診断メタデータを保存できませんでした: ${errorMessage(error)}`);
     }
   }
