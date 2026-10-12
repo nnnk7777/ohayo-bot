@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { morningBriefingProfile } from "./briefingProfile.js";
 
 describe("morningBriefingProfile", () => {
+  it("今日の予定がない日は、先の予定の補足があっても予定なしの案内を求める", () => {
+    expect(morningBriefingProfile.instructions).toContain(
+      'agendaがない、またはagenda.itemsが空の場合は、「今日は、予定のお知らせはありません。」と一度伝えてください。',
+    );
+    expect(morningBriefingProfile.instructions).toContain(
+      "weekdayFocusに今日以外の予定があっても、今日の予定がないことは伝えてください。",
+    );
+    expect(morningBriefingProfile.instructions).not.toContain("予定がないことは、わざわざ言わない");
+  });
+
   it("事実に基づく原稿と、控えめなしめを求める", () => {
     expect(morningBriefingProfile.model).toMatch(/\S/);
     expect(morningBriefingProfile.instructions).toContain("JSONにない情報は推測・補完しない");
