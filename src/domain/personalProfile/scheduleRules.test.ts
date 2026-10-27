@@ -31,6 +31,49 @@ const rules: ScheduleRules = {
 };
 
 describe("applyScheduleRules", () => {
+  const aliasRules: ScheduleRules = {
+    ...rules,
+    exactTitleRules: [{ title: "🥊Sample Gym", briefingTitle: "ジムの予定", requiresGoingOut: true }],
+  };
+  it.each(["🥊ＳＡＭＰＬＥ　ＧＹＭ", "  🥊 sample   gym  ", "🥊Sample Gym"])("表記ゆれを照合時だけ吸収する: %s", title => {
+    expect(applyScheduleRules([{ title, description: "備考　ＡＢＣ", isAllDay: false }], aliasRules))
+      .toEqual([{ title: "ジムの予定", description: "備考　ＡＢＣ", isAllDay: false, requiresGoingOut: true }]);
+  });
+
+  it("設定側の表記もそろえ、単語間の空白がない別名は区別する", () => {
+    const config = { ...aliasRules, exactTitleRules: [{ title: "  🥊 ＳＡＭＰＬＥ　ＧＹＭ ", briefingTitle: "ジムの予定" }] };
+    expect(applyScheduleRules([{ title: "🥊sample gym", isAllDay: false }], config)[0].title).toBe("ジムの予定");
+    expect(applyScheduleRules([{ title: "🥊SampleGym", isAllDay: false }], config)[0].title).toBe("🥊SampleGym");
+  });
+
+  it("絵文字の表示形式や直後の空白が違っても補助情報を付け、元のタイトルは保持する", () => {
+    expect(applyScheduleRules([{ title: "♨ テスト施設", isAllDay: false }], rules)[0]).toMatchObject({
+      title: "♨ テスト施設", briefingHints: [rules.prefixRules[0].hint, rules.prefixRules[0].detailHints![0].hint],
+    });
+    expect(applyScheduleRules([{ title: "🍽 テスト友人A", isAllDay: false }], rules)[0].requiresGoingOut).toBe(true);
+  });
+
+  it("人名と除外の照合にも表記ゆれを適用する", () => {
+    expect(applyScheduleRules([{ title: " ﾃｽﾄ友人 ", isAllDay: false }], rules)[0].title).toBe("テスト友人さんとの予定");
+    expect(applyScheduleRules([{ title: "　移動　", isAllDay: false }], rules)).toEqual([]);
+    const config = { ...rules, excludedTitleFragments: ["BUDGET MEMO"] };
+    expect(applyScheduleRules([{ title: "定期 budget　memo", isAllDay: true }], config)).toEqual([]);
+  });
+
+  it("正規化後も同じ配列の先頭ルールを優先する", () => {
+    const config = { ...aliasRules, exactTitleRules: [
+      { title: "🥊Sample Gym", briefingTitle: "先頭の予約" },
+      { title: "🥊ＳＡＭＰＬＥ　ＧＹＭ", briefingTitle: "後ろの予約" },
+    ] };
+    expect(applyScheduleRules([{ title: "🥊sample gym", isAllDay: false }], config)[0].title).toBe("先頭の予約");
+  });
+
+  it("空白だけの条件を無視し、無関係な予定や原文を書き換えない", () => {
+    const config = { ...rules, excludedTitleFragments: ["　"], prefixRules: [{ prefix: " ", hint: "使わない" }] };
+    const schedule = { title: "  ＡＢＣ　別の予定 ", description: "本文　そのまま", location: "会場　Ａ", isAllDay: false };
+    expect(applyScheduleRules([schedule], config)).toEqual([schedule]);
+  });
+
   it("除外対象を原稿用の予定から外す", () => {
     expect(applyScheduleRules([
       { title: "💰節制モード", isAllDay: true },
@@ -99,8 +142,25 @@ describe("applyScheduleRules", () => {
     ]);
   });
 
-  it("人名だけの予定は、明示した場合だけ遊びに出かける予定として扱う", () => {
+  it("登録した人名だけの予定は、行動や外出を決め付けず案内する", () => {
     expect(applyScheduleRules([{ title: "テスト友人", isAllDay: false }], rules))
-      .toEqual([{ title: "テスト友人さんと一緒に遊びに出かける予定", isAllDay: false }]);
+      .toEqual([{ title: "テスト友人さんとの予定", isAllDay: false }]);
+  });
+
+  it("人名の予定にある行動や場所の事実を原稿生成へ残す", () => {
+    const result = applyScheduleRules([{
+      title: "テスト友人", startTime: "18:00", isAllDay: false,
+      description: "架空の街Aで食事", location: "サンプル会場",
+    }], rules);
+    expect(result).toEqual([{
+      title: "テスト友人さんとの予定", startTime: "18:00", isAllDay: false,
+      description: "架空の街Aで食事", location: "サンプル会場",
+    }]);
+    expect(result[0].requiresGoingOut).toBeUndefined();
+  });
+
+  it("登録していない予定名を人物として扱わない", () => {
+    expect(applyScheduleRules([{ title: "サンプル作品名", isAllDay: false }], rules))
+      .toEqual([{ title: "サンプル作品名", isAllDay: false }]);
   });
 });

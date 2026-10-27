@@ -34,7 +34,7 @@ export const personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: Sched
   },
   scheduleRules: {
     // 以下のコメント内の例はすべて架空です。使いたい項目だけコメントを外して調整します。
-    // 朝の原稿で伝える必要がないタイトル。完全一致で指定します。
+    // 朝の原稿で伝える必要がないタイトル。照合用の表記をそろえた上で完全一致にします。
     excludedTitles: [
       // "家計メモ",
       // "移動メモ",
@@ -43,7 +43,7 @@ export const personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: Sched
     excludedTitleFragments: [
       // "引き落とし",
     ],
-    // タイトルが完全一致したとき、朝の原稿向けの表現に置き換えます。
+    // 表記ゆれをならしたタイトルが完全一致したとき、朝の原稿向けの表現に置き換えます。
     exactTitleRules: [
       // {
       //   title: "💈サンプル美容室",
@@ -58,7 +58,7 @@ export const personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: Sched
         prefix: "♨️",
         hint: "銭湯・サウナに行く予定を表す個人用の記法です。",
         suggestsGoingOut: true,
-        // prefixを除いて前後の空白を取り除いた残りと、detailが完全一致すると追加します。
+        // 照合用の表記をそろえ、prefixを除いた残りとdetailが完全一致すると追加します。
         detailHints: [
           // {
           //   detail: "サンプル温浴施設",
@@ -86,7 +86,7 @@ export const personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: Sched
       //   hint: "この記法は架空のペットの誕生日を表します。祝い方や外出予定は推測しないでください。",
       // },
     ],
-    // 人名だけの予定を「〜さんと一緒に遊びに出かける予定」として読ませたい場合に指定します。
+    // 人名だけの予定を「〜さんとの予定」として案内する場合に指定します。行動や場所は予定の情報から補います。
     personOnlyTitles: [
       // "サンプル太郎",
     ],

@@ -1,0 +1,819 @@
+{
+  "profile": {
+    "cookingPlace": "サンプル街D",
+    "rules": {
+      "excludedTitles": [],
+      "excludedTitleFragments": [],
+      "exactTitleRules": [
+        {
+          "title": "🥊Sample Gym",
+          "briefingTitle": "ジムの予定",
+          "requiresGoingOut": true
+        },
+        {
+          "title": "🏠在宅",
+          "briefingTitle": "在宅勤務",
+          "requiresGoingOut": false
+        }
+      ],
+      "prefixRules": [
+        {
+          "prefix": "🗿",
+          "hint": "サンプル企画関連の予定です。通常は配信を見る予定です。予定名・備考欄・場所欄に現地参加や会場へ行く旨が明記されている場合は、その具体的な内容を優先してください。"
+        },
+        {
+          "prefix": "🍳",
+          "hint": "料理会を表す記法です。特記がなければサンプル街Dでの料理会です。予定名・備考欄・場所欄に別の場所が書かれている場合は、そちらを優先してください。"
+        },
+        {
+          "prefix": "🚚",
+          "hint": "荷物の受け取りを表す記法です。通常は自宅で荷物を受け取る予定です。自分で取りに行く旨が予定名・備考欄・場所欄にあれば、その具体的な内容を優先してください。"
+        }
+      ],
+      "suffixRules": [
+        {
+          "suffix": "🎂",
+          "titlePrefix": "🐶",
+          "hint": "犬のサンプルポチの誕生日を表す個人用の記法です。外出の予定ではありません。"
+        }
+      ],
+      "personOnlyTitles": [
+        "サンプル太郎"
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "01-person-unknown",
+      "label": "人名のみ・行動も場所も不明",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "サンプル太郎",
+          "startTime": "15:00",
+          "isAllDay": false
+        }
+      ],
+      "required": [
+        "サンプル太郎さん",
+        "予定"
+      ],
+      "forbidden": [
+        "遊び|遊ぶ|出かけ|外出|食事|サンプル街"
+      ],
+      "once": [],
+      "facts": [
+        {
+          "event": "サンプル太郎",
+          "startTime": "15:00"
+        }
+      ]
+    },
+    {
+      "id": "02-person-meal-note",
+      "label": "人名＋備考に食事と場所",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "サンプル太郎",
+          "startTime": "15:00",
+          "isAllDay": false,
+          "description": "サンプル街で食事。"
+        }
+      ],
+      "required": [
+        "サンプル太郎さん",
+        "サンプル街",
+        "食事"
+      ],
+      "forbidden": [
+        "遊び|遊ぶ"
+      ],
+      "once": [],
+      "facts": [
+        {
+          "event": "サンプル太郎",
+          "startTime": "15:00",
+          "place": "サンプル街"
+        }
+      ]
+    },
+    {
+      "id": "03-person-place-only",
+      "label": "人名＋備考に場所だけ",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "サンプル太郎",
+          "startTime": "15:00",
+          "isAllDay": false,
+          "description": "サンプル街"
+        }
+      ],
+      "required": [
+        "サンプル太郎さん",
+        "サンプル街"
+      ],
+      "forbidden": [
+        "食事|遊び|遊ぶ"
+      ],
+      "once": [],
+      "facts": [
+        {
+          "event": "サンプル太郎",
+          "startTime": "15:00",
+          "place": "サンプル街"
+        }
+      ]
+    },
+    {
+      "id": "04-meal-in-title",
+      "label": "予定名に人名と食事",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "サンプル太郎と食事",
+          "startTime": "15:00",
+          "isAllDay": false
+        }
+      ],
+      "required": [
+        "サンプル太郎",
+        "食事"
+      ],
+      "forbidden": [
+        "遊び|遊ぶ"
+      ],
+      "once": [],
+      "facts": [
+        {
+          "event": "サンプル太郎",
+          "startTime": "15:00"
+        }
+      ]
+    },
+    {
+      "id": "05-stream-usual",
+      "label": "🗿・補足なしなので配信",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "🗿サンプル企画",
+          "startTime": "15:00",
+          "isAllDay": false
+        }
+      ],
+      "required": [
+        "配信"
+      ],
+      "forbidden": [
+        "現地|会場|外出|出かけ"
+      ],
+      "once": [],
+      "facts": [
+        {
+          "event": "サンプル企画",
+          "startTime": "15:00"
+        }
+      ]
+    },
+    {
+      "id": "06-stream-in-person",
+      "label": "🗿・備考に現地参加",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "🗿サンプル企画",
+          "startTime": "15:00",
+          "isAllDay": false,
+          "description": "今回は現地参加。会場へ行く。",
+          "location": "サンプルホール"
+        }
+      ],
+      "required": [
+        "サンプルホール",
+        "現地|参加|行く"
+      ],
+      "forbidden": [
+        "配信"
+      ],
+      "once": [],
+      "facts": [
+        {
+          "event": "サンプル企画",
+          "startTime": "15:00",
+          "place": "サンプルホール"
+        }
+      ]
+    },
+    {
+      "id": "07-cooking-usual",
+      "label": "🍳・補足なしなので通常の開催地",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "🍳料理会",
+          "startTime": "15:00",
+          "isAllDay": false
+        }
+      ],
+      "required": [
+        "料理会",
+        "{{cookingPlace}}"
+      ],
+      "forbidden": [],
+      "once": [],
+      "facts": [
+        {
+          "event": "料理会",
+          "startTime": "15:00",
+          "place": "{{cookingPlace}}"
+        }
+      ]
+    },
+    {
+      "id": "08-cooking-note-override",
+      "label": "🍳・備考に別の場所",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "🍳料理会",
+          "startTime": "15:00",
+          "isAllDay": false,
+          "description": "今回はサンプル会場Bで開催。"
+        }
+      ],
+      "required": [
+        "料理会",
+        "サンプル会場B"
+      ],
+      "forbidden": [
+        "{{cookingPlace}}"
+      ],
+      "once": [],
+      "facts": [
+        {
+          "event": "料理会",
+          "startTime": "15:00",
+          "place": "サンプル会場B"
+        }
+      ]
+    },
+    {
+      "id": "09-cooking-location-override",
+      "label": "🍳・場所欄だけに別の場所",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "🍳料理会",
+          "startTime": "15:00",
+          "isAllDay": false,
+          "location": "サンプル会場C"
+        }
+      ],
+      "required": [
+        "料理会",
+        "サンプル会場C"
+      ],
+      "forbidden": [
+        "{{cookingPlace}}"
+      ],
+      "once": [],
+      "facts": [
+        {
+          "event": "料理会",
+          "startTime": "15:00",
+          "place": "サンプル会場C"
+        }
+      ]
+    },
+    {
+      "id": "10-delivery-usual",
+      "label": "🚚・補足なしなので自宅で受取",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "🚚荷物受取",
+          "startTime": "15:00",
+          "isAllDay": false
+        }
+      ],
+      "required": [
+        "自宅",
+        "受け取|受取"
+      ],
+      "forbidden": [
+        "集配所|取りに行"
+      ],
+      "once": [],
+      "facts": [
+        {
+          "event": "荷物",
+          "startTime": "15:00",
+          "place": "自宅"
+        }
+      ]
+    },
+    {
+      "id": "11-delivery-pickup",
+      "label": "🚚・備考に自分で取りに行く",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "🚚荷物受取",
+          "startTime": "15:00",
+          "isAllDay": false,
+          "description": "自分で集配所へ取りに行く。",
+          "location": "サンプル集配所"
+        }
+      ],
+      "required": [
+        "集配所",
+        "取りに|引き取|受け取|受取"
+      ],
+      "forbidden": [
+        "自宅"
+      ],
+      "once": [],
+      "facts": [
+        {
+          "event": "荷物",
+          "startTime": "15:00",
+          "place": "サンプル集配所"
+        }
+      ]
+    },
+    {
+      "id": "mixed-usual",
+      "label": "普段の意味を使う予定4件",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "サンプル太郎",
+          "startTime": "10:00",
+          "isAllDay": false
+        },
+        {
+          "title": "🗿サンプル企画",
+          "startTime": "12:00",
+          "isAllDay": false
+        },
+        {
+          "title": "🍳料理会",
+          "startTime": "15:00",
+          "isAllDay": false
+        },
+        {
+          "title": "🚚荷物受取",
+          "startTime": "18:00",
+          "isAllDay": false
+        }
+      ],
+      "required": [
+        "サンプル太郎さんとの予定",
+        "配信",
+        "{{cookingPlace}}",
+        "自宅"
+      ],
+      "forbidden": [
+        "遊びに出かける"
+      ],
+      "once": [
+        "サンプル太郎",
+        "サンプル企画",
+        "料理会"
+      ],
+      "ordered": [
+        "サンプル太郎",
+        "サンプル企画",
+        "料理会",
+        "荷物"
+      ],
+      "facts": [
+        {
+          "event": "サンプル太郎",
+          "startTime": "10:00"
+        },
+        {
+          "event": "サンプル企画",
+          "startTime": "12:00"
+        },
+        {
+          "event": "料理会",
+          "startTime": "15:00",
+          "place": "{{cookingPlace}}"
+        },
+        {
+          "event": "荷物",
+          "startTime": "18:00",
+          "place": "自宅"
+        }
+      ]
+    },
+    {
+      "id": "mixed-exceptions",
+      "label": "備考・場所による例外4件",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "サンプル太郎",
+          "description": "サンプル街で食事。",
+          "startTime": "10:00",
+          "isAllDay": false
+        },
+        {
+          "title": "🗿サンプル企画",
+          "description": "今回は現地参加。会場へ行く。",
+          "location": "サンプルホール",
+          "startTime": "12:00",
+          "isAllDay": false
+        },
+        {
+          "title": "🍳料理会",
+          "description": "今回はサンプル会場Bで開催。",
+          "startTime": "15:00",
+          "isAllDay": false
+        },
+        {
+          "title": "🚚荷物受取",
+          "description": "自分で集配所へ取りに行く。",
+          "location": "サンプル集配所",
+          "startTime": "18:00",
+          "isAllDay": false
+        }
+      ],
+      "required": [
+        "サンプル太郎",
+        "食事",
+        "サンプル街",
+        "サンプルホール",
+        "サンプル会場B",
+        "サンプル集配所"
+      ],
+      "forbidden": [
+        "{{cookingPlace}}",
+        "自宅",
+        "配信"
+      ],
+      "once": [
+        "サンプル太郎",
+        "サンプル企画",
+        "料理会"
+      ],
+      "ordered": [
+        "サンプル太郎",
+        "サンプル企画",
+        "料理会",
+        "荷物"
+      ],
+      "facts": [
+        {
+          "event": "サンプル太郎",
+          "startTime": "10:00",
+          "place": "サンプル街"
+        },
+        {
+          "event": "サンプル企画",
+          "startTime": "12:00",
+          "place": "サンプルホール"
+        },
+        {
+          "event": "料理会",
+          "startTime": "15:00",
+          "place": "サンプル会場B"
+        },
+        {
+          "event": "荷物",
+          "startTime": "18:00",
+          "place": "サンプル集配所"
+        }
+      ]
+    },
+    {
+      "id": "mixed-all-day-and-untimed",
+      "label": "月曜・終日・時刻未定を含む5件",
+      "date": "2026-09-07",
+      "schedules": [
+        {
+          "title": "サンプル記念日",
+          "isAllDay": true
+        },
+        {
+          "title": "サンプル太郎",
+          "startTime": "09:00",
+          "isAllDay": false
+        },
+        {
+          "title": "🍳料理会",
+          "location": "サンプル会場C",
+          "startTime": "11:00",
+          "isAllDay": false
+        },
+        {
+          "title": "🚚荷物受取",
+          "isAllDay": false
+        },
+        {
+          "title": "🗿サンプル企画",
+          "startTime": "21:00",
+          "isAllDay": false
+        }
+      ],
+      "required": [
+        "サンプル記念日",
+        "サンプル太郎さんとの予定",
+        "サンプル会場C",
+        "自宅",
+        "配信"
+      ],
+      "forbidden": [
+        "{{cookingPlace}}",
+        "遊びに出かける",
+        "その後[はに、 ]*[^。]*荷物",
+        "時刻.{0,8}記載"
+      ],
+      "once": [
+        "サンプル記念日",
+        "サンプル太郎",
+        "サンプル企画",
+        "料理会"
+      ],
+      "ordered": [
+        "サンプル太郎",
+        "料理会",
+        "サンプル企画"
+      ],
+      "facts": [
+        {
+          "event": "サンプル記念日",
+          "startTime": null
+        },
+        {
+          "event": "サンプル太郎",
+          "startTime": "09:00"
+        },
+        {
+          "event": "料理会",
+          "startTime": "11:00",
+          "place": "サンプル会場C"
+        },
+        {
+          "event": "荷物",
+          "startTime": null,
+          "place": "自宅"
+        },
+        {
+          "event": "サンプル企画",
+          "startTime": "21:00"
+        }
+      ]
+    },
+    {
+      "id": "normalized-gym",
+      "label": "全角・大文字・空白が混じる店舗名",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "🥊 ＳＡＭＰＬＥ　ＧＹＭ",
+          "startTime": "15:00",
+          "isAllDay": false
+        }
+      ],
+      "required": [
+        "ジム"
+      ],
+      "forbidden": [
+        "ＳＡＭＰＬＥ",
+        "SAMPLE"
+      ],
+      "once": [],
+      "facts": [
+        {
+          "event": "ジム",
+          "startTime": "15:00"
+        }
+      ]
+    },
+    {
+      "id": "16-reservation-duplicate",
+      "label": "予約確認と手入力が同じ食事を表す",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "サンプル太郎と食事",
+          "startTime": "19:00",
+          "isAllDay": false,
+          "location": "サンプル食堂A"
+        },
+        {
+          "title": "Reservation at サンプル食堂A",
+          "startTime": "19:00",
+          "isAllDay": false,
+          "description": "サンプル食堂Aの予約完了",
+          "location": "サンプル食堂A"
+        }
+      ],
+      "required": [
+        "サンプル太郎",
+        "食事",
+        "サンプル食堂A"
+      ],
+      "forbidden": [
+        "Reservation at",
+        "予約完了"
+      ],
+      "once": [
+        "サンプル太郎",
+        "サンプル食堂A"
+      ],
+      "facts": [
+        {
+          "event": "サンプル太郎",
+          "startTime": "19:00",
+          "place": "サンプル食堂A"
+        }
+      ]
+    },
+    {
+      "id": "17-reservation-uncertain",
+      "label": "別店舗の予約は重複と断定して省略しない",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "サンプル太郎と食事",
+          "startTime": "19:00",
+          "isAllDay": false,
+          "location": "サンプル食堂A"
+        },
+        {
+          "title": "Reservation at サンプル食堂B",
+          "startTime": "20:00",
+          "isAllDay": false,
+          "location": "サンプル食堂B"
+        }
+      ],
+      "required": [
+        "サンプル太郎",
+        "サンプル食堂A",
+        "サンプル食堂B"
+      ],
+      "forbidden": [],
+      "once": [
+        "サンプル食堂A",
+        "サンプル食堂B"
+      ],
+      "facts": [
+        {
+          "event": "サンプル食堂A",
+          "startTime": "19:00",
+          "place": "サンプル食堂A"
+        },
+        {
+          "event": "サンプル食堂B",
+          "startTime": "20:00",
+          "place": "サンプル食堂B"
+        }
+      ],
+      "ordered": [
+        "サンプル食堂A",
+        "サンプル食堂B"
+      ]
+    },
+    {
+      "id": "18-working-from-home",
+      "label": "在宅の略記を展開し、出社・通勤を足さない",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "🏠在宅",
+          "isAllDay": true
+        }
+      ],
+      "required": [
+        "在宅勤務"
+      ],
+      "forbidden": [
+        "出社|通勤|出勤|いってらっしゃい|行ってらっしゃい|駅まで"
+      ],
+      "once": [
+        "在宅勤務"
+      ],
+      "facts": [
+        {
+          "event": "在宅勤務",
+          "startTime": null
+        }
+      ]
+    },
+    {
+      "id": "19-all-day-trip",
+      "label": "都市名だけの終日予定を旅行として伝える",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "🧳仙台",
+          "isAllDay": true
+        }
+      ],
+      "required": [
+        "仙台",
+        "旅行"
+      ],
+      "forbidden": [
+        "出発時刻|新幹線|ホテル|予約済み"
+      ],
+      "once": [
+        "仙台"
+      ],
+      "facts": [
+        {
+          "event": "仙台",
+          "startTime": null
+        }
+      ]
+    },
+    {
+      "id": "20-all-day-not-trip",
+      "label": "地名を含む催しを旅行と決め付けない",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "仙台写真展",
+          "isAllDay": true,
+          "location": "サンプル美術館"
+        }
+      ],
+      "required": [
+        "仙台写真展",
+        "サンプル美術館"
+      ],
+      "forbidden": [
+        "旅行|宿泊|新幹線"
+      ],
+      "once": [
+        "仙台写真展"
+      ],
+      "facts": [
+        {
+          "event": "仙台写真展",
+          "startTime": null,
+          "place": "サンプル美術館"
+        }
+      ]
+    },
+    {
+      "id": "21-person-birthday",
+      "label": "人の誕生日を会う予定と決め付けない",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "サンプル次郎の誕生日",
+          "isAllDay": true
+        }
+      ],
+      "required": [
+        "サンプル次郎",
+        "誕生日"
+      ],
+      "forbidden": [
+        "会う予定|会います|食事|パーティー|プレゼント|出かけ|旅行"
+      ],
+      "once": [
+        "サンプル次郎"
+      ],
+      "facts": [
+        {
+          "event": "サンプル次郎",
+          "startTime": null
+        }
+      ]
+    },
+    {
+      "id": "22-pet-birthday",
+      "label": "絵文字の補足から犬の誕生日を自然に伝える",
+      "date": "2026-09-02",
+      "schedules": [
+        {
+          "title": "🐶サンプルポチ🎂",
+          "isAllDay": true
+        }
+      ],
+      "required": [
+        "サンプルポチ",
+        "誕生日"
+      ],
+      "forbidden": [
+        "旅行|出かけ|プレゼント|パーティー|プロフィール|記法|設定では"
+      ],
+      "once": [
+        "サンプルポチ"
+      ],
+      "facts": [
+        {
+          "event": "サンプルポチ",
+          "startTime": null
+        }
+      ]
+    }
+  ]
+}
