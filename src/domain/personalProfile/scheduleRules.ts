@@ -46,15 +46,19 @@ function presentationFor(
   rules: ScheduleRules,
 ): Pick<Schedule, "title" | "requiresGoingOut" | "briefingHints"> {
   const { title } = schedule;
-  const exactRule = rules.exactTitleRules.find((rule) => rule.title === title);
+  const titleKey = titleKeyForMatching(title);
+  const exactRule = rules.exactTitleRules.find((rule) => equalTitleKeys(titleKey, rule.title));
   if (exactRule) {
     return { title: exactRule.briefingTitle, requiresGoingOut: exactRule.requiresGoingOut };
   }
 
-  const prefixRule = rules.prefixRules.find((rule) => title.startsWith(rule.prefix));
+  const prefixRule = rules.prefixRules.find((rule) => {
+    const prefix = titleKeyForMatching(rule.prefix);
+    return prefix.length > 0 && titleKey.startsWith(prefix);
+  });
   if (prefixRule) {
-    const detail = title.slice(prefixRule.prefix.length).trim();
-    const detailHint = prefixRule.detailHints?.find((item) => item.detail === detail);
+    const detail = titleKey.slice(titleKeyForMatching(prefixRule.prefix).length).trim();
+    const detailHint = prefixRule.detailHints?.find((item) => equalTitleKeys(detail, item.detail));
     return {
       title,
       briefingHints: [prefixRule.hint, ...(detailHint ? [detailHint.hint] : [])],
@@ -62,16 +66,37 @@ function presentationFor(
     };
   }
 
-  const suffixRule = rules.suffixRules.find((rule) => (
-    title.endsWith(rule.suffix) && (!rule.titlePrefix || title.startsWith(rule.titlePrefix))
-  ));
+  const suffixRule = rules.suffixRules.find((rule) => {
+    const suffix = titleKeyForMatching(rule.suffix);
+    const prefix = rule.titlePrefix === undefined ? undefined : titleKeyForMatching(rule.titlePrefix);
+    return suffix.length > 0 && titleKey.endsWith(suffix) &&
+      (prefix === undefined || (prefix.length > 0 && titleKey.startsWith(prefix)));
+  });
   if (suffixRule) return { title, briefingHints: [suffixRule.hint] };
 
-  if (rules.personOnlyTitles.includes(title)) return { title: `${title}さんと一緒に遊びに出かける予定` };
+  const person = rules.personOnlyTitles.find(name => equalTitleKeys(titleKey, name));
+  if (person) return { title: `${person.trim()}さんとの予定` };
 
   return { title };
 }
 
 function isExcluded(title: string, rules: ScheduleRules): boolean {
-  return rules.excludedTitles.includes(title) || rules.excludedTitleFragments.some((fragment) => title.includes(fragment));
+  const titleKey = titleKeyForMatching(title);
+  return rules.excludedTitles.some(value => equalTitleKeys(titleKey, value)) || rules.excludedTitleFragments.some(fragment => {
+    const key = titleKeyForMatching(fragment);
+    return key.length > 0 && titleKey.includes(key);
+  });
+}
+
+function equalTitleKeys(key: string, value: string): boolean {
+  const other = titleKeyForMatching(value);
+  return other.length > 0 && key === other;
+}
+
+// 照合用のキーだけを作る。単語間の空白は残し、カレンダーの原文は変えない。
+function titleKeyForMatching(title: string): string {
+  return title.normalize("NFKC").toLowerCase()
+    .replace(/[\uFE0E\uFE0F]/gu, "")
+    .trim().replace(/\s+/gu, " ")
+    .replace(/(\p{Extended_Pictographic}) +/gu, "$1");
 }

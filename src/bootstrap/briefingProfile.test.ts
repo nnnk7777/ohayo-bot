@@ -2,6 +2,30 @@ import { describe, expect, it } from "vitest";
 import { morningBriefingProfile } from "./briefingProfile.js";
 
 describe("morningBriefingProfile", () => {
+  it("複数予定でも識別できる名前を残し、未定の時刻を補わない", () => {
+    expect(morningBriefingProfile.instructions).toContain("どの予定かを識別する名前は残して");
+    expect(morningBriefingProfile.instructions).toContain("種類だけに置き換えない");
+    expect(morningBriefingProfile.instructions).toContain("startTimeのない予定の時刻は推測しない");
+    expect(morningBriefingProfile.instructions).toContain("時系列を示す語で他の予定に結び付けない");
+  });
+
+  it("当日の例外がなければ、普段の行動や場所を原稿から落とさない", () => {
+    const instructions = morningBriefingProfile.instructions;
+    expect(instructions).toContain("既定の解釈がある場合、それは予定の意味を補う事実");
+    expect(instructions).toContain("その行動や場所を予定の案内に一度含めて");
+    expect(instructions).toContain("タイトルに書かれていないという理由だけで");
+    expect(instructions).toContain("当日に別の行動・場所が明記されていれば例外を優先");
+  });
+
+  it("人名の予定を中立に扱い、当日の具体的な情報を普段の意味より優先する", () => {
+    const instructions = morningBriefingProfile.instructions;
+    expect(instructions).toContain("○○さんとの予定があります");
+    expect(instructions).toContain("人物と会うだけで、遊びや外出とは決め付けない");
+    expect(instructions).toContain("title・description・locationから食事や行き先などが分かる場合だけ");
+    expect(instructions).toContain("locationに具体的な場所やオンラインの記述がある場合も");
+    expect(instructions).toContain("前後の移動予定だけを根拠に");
+  });
+
   it("予定と時間帯別の雨を短くつなぎ、時刻・移動・目的地の天気を推測しない", () => {
     const instructions = morningBriefingProfile.instructions;
     expect(instructions).toContain("weather.scheduleContext");
