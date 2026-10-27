@@ -26,13 +26,14 @@ export type OpenAiTtsSpeakerOptions = {
   recordIssue?: IssueRecorder;
   maxAttempts?: number;
   preparationBudgetMs?: number;
+  generationTimeoutMs?: number;
   playAt?: string;
   timeZone?: string;
   closingAudioPath?: string;
   diagnosticRoot?: string;
   now?: () => number;
   sleep?: (milliseconds: number) => Promise<void>;
-  generateAudio?: (text: string, outputPath: string, timeoutMs: number) => Promise<{ transcript?: string }>;
+  generateAudio?: (text: string, outputPath: string, timeoutMs: number) => Promise<{ transcript?: string; sessionSeconds?: number }>;
 };
 
 type TtsCandidate = {
@@ -42,6 +43,7 @@ type TtsCandidate = {
   transcript?: string;
   trailingSilenceMs?: number;
   issues?: string[];
+  sessionSeconds?: number;
 };
 
 export class MacSaySpeaker implements Speaker {
@@ -96,9 +98,11 @@ export class OpenAiTtsSpeaker implements Speaker {
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         if (attempt > 1 && deadline - now() < 12_000) break;
         const audioPath = join(directory, `briefing-attempt-${attempt}.mp3`);
+        let sessionSeconds: number | undefined;
         try {
           if (this.options.generateAudio) {
-            const result = await this.options.generateAudio(text, audioPath, requestTimeout(deadline, now(), 35_000));
+            const result = await this.options.generateAudio(text, audioPath, requestTimeout(deadline, now(), this.options.generationTimeoutMs ?? 35_000));
+            sessionSeconds = result.sessionSeconds;
             if (diagnosticDirectory && result.transcript) {
               try {
                 await writeFile(join(diagnosticDirectory, `attempt-${attempt}-generated-transcript.txt`), result.transcript, { mode: 0o600 });
@@ -130,6 +134,7 @@ export class OpenAiTtsSpeaker implements Speaker {
             now,
           });
           candidates.push(candidate);
+          candidate.sessionSeconds = sessionSeconds;
           if (!candidate.assessment) break;
           if (candidate.assessment.hasClosing) break;
           console.warn(`TTSの末尾欠落を検出しました。全文を再生成します（${attempt}/${maxAttempts}）。`);
@@ -154,6 +159,7 @@ export class OpenAiTtsSpeaker implements Speaker {
         usedFallbackClosing: playablePath !== bestCandidate.audioPath,
         attempts: candidates.map((candidate) => ({
           attempt: candidate.attempt,
+          sessionSeconds: candidate.sessionSeconds,
           closingScore: candidate.assessment?.closingScore ?? null,
           precedingScore: candidate.assessment?.precedingScore ?? null,
           hasClosing: candidate.assessment?.hasClosing ?? null,

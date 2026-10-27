@@ -5,6 +5,8 @@ import type { MorningBriefingPlan } from "../domain/morningBriefing.js";
 type BriefingProfile = {
   model: string;
   instructions: string;
+  reasoningEffort?: "none" | "low";
+  maxOutputTokens?: number;
 };
 
 export class OpenAiBriefingNarrator implements BriefingNarrator {
@@ -21,13 +23,15 @@ export class OpenAiBriefingNarrator implements BriefingNarrator {
     const response = await this.client.responses.create({
       model: this.profile.model,
       store: false,
-      max_output_tokens: 600,
-      reasoning: { effort: "none" },
+      max_output_tokens: this.profile.maxOutputTokens ?? 600,
+      reasoning: { effort: this.profile.reasoningEffort ?? "none" },
       text: { verbosity: "medium" },
       instructions: this.profile.instructions,
       input: JSON.stringify(plan),
     });
 
+    if (response.status !== "completed") throw new Error("原稿生成が完了しませんでした。");
+    if (!response.output_text.trim()) throw new Error("原稿生成で空の文章が返されました。");
     return response.output_text;
   }
 }

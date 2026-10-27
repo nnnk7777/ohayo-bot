@@ -57,7 +57,7 @@ pnpm dev
 SPEECH_ENGINE=openai
 ```
 
-SPEECH_ENGINE=openai の通常の読み上げは、Realtime APIの `gpt-realtime-2.1-mini` を使います。声は `marin`、速度は1.03で、声の張りを抑えた、やや高めで明るい話し方に設定しています。音声はMP3へ変換したうえで、既存の末尾検査・再生成・締めの補完・時刻待機を通します。
+SPEECH_ENGINE=openai の通常の読み上げは、GPT-Liveの `gpt-live-1` と日本語音声 `harema` を使います。試聴で調整した穏やかな口調・自然な間・挨拶の明瞭な発音を `src/bootstrap/liveSpeechProfile.ts` で管理します。個人の固有名詞の読みはGit管理しない `src/bootstrap/personalProfile.ts` の `speechReadings` に設定し、音声生成の指示へ取り込みます。音声はMP3へ変換したうえで、既存の末尾検査・再生成・締めの補完・時刻待機を通します。
 
 OpenAI TTSの再生プレイヤーは標準でOSに合わせて選びます。macOSでは `afplay`、Linux（Raspberry Piを含む）では `mpg123`、AndroidのTermuxでは `termux-media-player` を使います。Linuxでは事前に `sudo apt install mpg123 ffmpeg` を実行してください。macOSでは `brew install ffmpeg`、AndroidではTermux本体と同じ配布元のTermux:APIアプリをインストールしたうえで、Termuxから `pkg install termux-api ffmpeg` を実行してください。
 
@@ -118,7 +118,7 @@ AUDIO_PLAYER=mpg123
 AUDIO_PLAYER=mpg123 pnpm voice:sample -- --voices=marin
 ```
 
-文章生成のモデル・原稿ルールは [briefingProfile.ts](src/bootstrap/briefingProfile.ts)、音声のモデル・声・速度・話し方は [speechProfile.ts](src/bootstrap/speechProfile.ts) でGit管理します。現在の採用ボイスは `marin` です。
+文章生成のモデル・原稿ルールは [briefingProfile.ts](src/bootstrap/briefingProfile.ts)、採用音声のモデル・声・話し方は [liveSpeechProfile.ts](src/bootstrap/liveSpeechProfile.ts) でGit管理します。原稿生成は `gpt-6-luna` の推論 `low`、推論と本文を合わせた出力上限は4096トークンです。生成が未完了の場合は途中の文章を読み上げず、エラーにします。現在の採用ボイスは `harema` です。旧TTS・Realtimeの比較用設定は [speechProfile.ts](src/bootstrap/speechProfile.ts) に残しています。
 
 OpenAI TTSへ渡す直前に、月日表記だけを読み上げ向けに正規化します。表示する原稿は変えず、たとえば `9月1日` は `九月一日`、`9月6日` は `九月むいか` として読み上げます。
 
@@ -246,9 +246,23 @@ iPhoneショートカットではURLを `http://<Androidの固定LAN IP>:8765/v1
 
 AndroidとiPhoneはルーターのDHCP予約でIPを固定してください。ポート8765をルーターでインターネットへ転送しないでください。HTTPのためLAN管理者や侵害済み端末からの盗聴可能性は残りますが、送信元IP制限、長いトークン、クールダウン、日次上限により再生の悪用を局所化します。外出先から使う場合はポート公開ではなくVPNを使用します。
 
-## Realtime音声への移行試聴
+## GPT-Live音声の試聴
 
-`gpt-realtime-2.1-mini` を、原稿を生成し直さず固定テキストで試聴できます。通常の朝の実行も同じRealtimeモデルを使います。モデルは `src/bootstrap/realtimeSpeechProfile.ts`、声・速度・話し方は `src/bootstrap/speechProfile.ts` で管理します。
+通常実行と同じHarema設定で、固定原稿だけを音声化できます。
+
+```sh
+pnpm voice:live -- --text-file=/absolute/path/sample.txt --output-dir=/absolute/path/new-sample --play
+```
+
+保存先は新規ディレクトリを指定します。`sample.wav`・`input.txt`・`transcript.txt`・`profile.json`・`usage.json` をディレクトリ700、ファイル600で保存します。`--play` を外すと保存だけ行います。プロフィールには個人の読み指定が含まれ得るので、試聴データもGitへ追加しないでください。
+
+Liveには音声終了イベントがないため、発話後の約6秒の無音を検知して `session.close` を送り、終了応答と最終使用秒数を確認します。最大90秒で終了し、開始しない・途中切断・終了応答がない・無音だけの出力は失敗として扱います。待機用の冒頭・末尾の無音だけを除去し、文中の間は保ちます。通常実行では生成後に独立した末尾検査も行い、正常に生成できた各試行のセッション使用秒数を診断メタデータへ記録します。Liveは無音を含む接続時間にも課金されます。
+
+原稿は会話モデルに読み上げを指示するため、忠実な発音や全文一致を保証するものではありません。生成側の文字起こしだけでなく、実際の音声も確認してください。この試聴コマンドは天気・予定・ニュースを取得せず、メールを送信しません。
+
+## 旧Realtime音声との比較試聴
+
+`gpt-realtime-2.1-mini` を、原稿を生成し直さず固定テキストで試聴できます。モデルは `src/bootstrap/realtimeSpeechProfile.ts`、声・速度・話し方は `src/bootstrap/speechProfile.ts` で管理します。
 
 ```sh
 pnpm voice:realtime -- --text-file=/absolute/path/sample.txt --output-dir=/absolute/path/new-sample
