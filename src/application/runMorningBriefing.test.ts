@@ -191,13 +191,13 @@ describe("runMorningBriefing", () => {
           scheduleRules: {
             ...personalProfile.scheduleRules,
             excludedTitles: ["💰節制モード"],
-            exactTitleRules: [{ title: "💈Roberts", briefingTitle: "美容院の予約", requiresGoingOut: true }],
+            exactTitleRules: [{ title: "💈テスト美容室", briefingTitle: "美容院の予約", requiresGoingOut: true }],
           },
         },
         scheduleProvider: {
           getSchedules: vi.fn().mockResolvedValue([
             { title: "💰節制モード", isAllDay: true },
-            { title: "💈Roberts", startTime: "11:00", isAllDay: false },
+            { title: "💈テスト美容室", startTime: "11:00", isAllDay: false },
           ]),
         },
         weatherProvider: {
@@ -219,11 +219,11 @@ describe("runMorningBriefing", () => {
   });
 
   it("出社日は運行情報を確認し、異常だけを原稿へ渡す", async () => {
-    const narrator = { narrate: vi.fn().mockResolvedValue("中央線に遅れがあります。") };
+    const narrator = { narrate: vi.fn().mockResolvedValue("テストJR線に遅れがあります。") };
     const trainStatusProvider = {
       getStatuses: vi.fn().mockResolvedValue([
-        { lineName: "中央線快速電車", state: "disrupted", detail: "一部列車に遅れがでています。", sourceUrl: "https://example.com/jr" },
-        { lineName: "南北線", state: "normal", sourceUrl: "https://example.com/metro" },
+        { lineName: "テストJR線", state: "disrupted", detail: "一部列車に遅れがでています。", sourceUrl: "https://example.com/jr" },
+        { lineName: "テストメトロ線", state: "normal", sourceUrl: "https://example.com/metro" },
       ]),
     };
     vi.spyOn(console, "log").mockImplementation(() => undefined);
@@ -236,7 +236,7 @@ describe("runMorningBriefing", () => {
             ...personalProfile.dailyRoutine,
             commute: {
               segments: [{
-                from: "三鷹", to: "四ツ谷", lineName: "中央線快速電車",
+                from: "テスト出発駅A", to: "テスト乗換駅B", lineName: "テストJR線",
                 source: { kind: "jr-east", officialUrl: "https://example.com/jr" },
               }],
             },
@@ -259,7 +259,7 @@ describe("runMorningBriefing", () => {
     expect(trainStatusProvider.getStatuses).toHaveBeenCalledOnce();
     expect(narrator.narrate).toHaveBeenCalledWith(expect.objectContaining({
       commute: {
-        issues: [expect.objectContaining({ lineName: "中央線快速電車", state: "disrupted" })],
+        issues: [expect.objectContaining({ lineName: "テストJR線", state: "disrupted" })],
         guidance: expect.any(String),
       },
     }));
@@ -278,7 +278,7 @@ describe("runMorningBriefing", () => {
             ...personalProfile.dailyRoutine,
             commute: {
               segments: [{
-                from: "三鷹", to: "四ツ谷", lineName: "中央線快速電車",
+                from: "テスト出発駅A", to: "テスト乗換駅B", lineName: "テストJR線",
                 source: { kind: "jr-east", officialUrl: "https://example.com/jr" },
               }],
             },

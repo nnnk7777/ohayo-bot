@@ -8,5 +8,5 @@ export PATH="$OHAYO_PREFIX/bin:$OHAYO_PREFIX/bin/applets"
 export LD_PRELOAD="$OHAYO_PREFIX/lib/libtermux-exec-ld-preload.so"
 mkdir -p "$OHAYO_STATE"
 # The loop lock makes repeated boot/manual launches harmless.
-nohup "$OHAYO_HOME/bin/watch-ohayo-services" </dev/null >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 &
-exec "$OHAYO_HOME/bin/ensure-ohayo-services" boot
+nohup setsid "$OHAYO_HOME/bin/watch-ohayo-services" 8>&- 9>&- </dev/null >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 &
+exec "$OHAYO_HOME/bin/ensure-ohayo-services" "${1:-boot}"

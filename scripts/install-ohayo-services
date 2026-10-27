@@ -1,0 +1,47 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+umask 077
+OHAYO_HOME=/data/data/com.termux/files/home
+OHAYO_PREFIX=/data/data/com.termux/files/usr
+export HOME="$OHAYO_HOME" PREFIX="$OHAYO_PREFIX"
+export PATH="$OHAYO_PREFIX/bin:$OHAYO_PREFIX/bin/applets"
+export LD_PRELOAD="$OHAYO_PREFIX/lib/libtermux-exec-ld-preload.so"
+OHAYO_SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+OHAYO_STATE="$OHAYO_HOME/.local/state/ohayo-bot"
+OHAYO_BACKUP="$OHAYO_STATE/services-before-$(date '+%Y%m%d-%H%M%S')"
+mkdir -p "$OHAYO_BACKUP" "$OHAYO_HOME/bin" "$OHAYO_HOME/.termux/boot"
+chmod 700 "$OHAYO_STATE" "$OHAYO_HOME/.termux/boot"
+for OHAYO_SCRIPT in ensure-ohayo-services watch-ohayo-services start-ohayo-services run-ohayo-bot-cron; do
+  if [ -f "$OHAYO_HOME/bin/$OHAYO_SCRIPT" ]; then
+    cp -p "$OHAYO_HOME/bin/$OHAYO_SCRIPT" "$OHAYO_BACKUP/$OHAYO_SCRIPT"
+  fi
+  install -m 700 "$OHAYO_SOURCE/$OHAYO_SCRIPT" "$OHAYO_HOME/bin/$OHAYO_SCRIPT"
+done
+if [ -f "$OHAYO_HOME/.termux/boot/start-ohayo-services" ]; then
+  cp -p "$OHAYO_HOME/.termux/boot/start-ohayo-services" "$OHAYO_BACKUP/boot-start-ohayo-services"
+fi
+# Termux:Boot already runs scripts as background tasks. Keep the loop itself
+# attached to that task instead of returning immediately after daemonizing.
+install -m 700 "$OHAYO_SOURCE/watch-ohayo-services" "$OHAYO_HOME/.termux/boot/start-ohayo-services"
+
+OHAYO_SERVICE="$OHAYO_PREFIX/var/service/ohayo-remote-playback"
+mkdir -p "$OHAYO_SERVICE/log"
+for OHAYO_PART in run log/run; do
+  if [ -f "$OHAYO_SERVICE/$OHAYO_PART" ]; then
+    cp -p "$OHAYO_SERVICE/$OHAYO_PART" "$OHAYO_BACKUP/remote-$(echo "$OHAYO_PART" | tr / -)"
+  fi
+done
+install -m 700 "$OHAYO_SOURCE/run-ohayo-remote-playback-service" "$OHAYO_SERVICE/run"
+install -m 700 "$OHAYO_SOURCE/run-ohayo-service-logger" "$OHAYO_SERVICE/log/run"
+
+crontab -l > "$OHAYO_BACKUP/crontab" 2>/dev/null || :
+# Preserve unrelated jobs and environment settings. All entry paths are absolute.
+sed '\|/bin/run-ohayo-bot-cron|d; \|/bin/ensure-ohayo-services|d; \|/bin/start-ohayo-services|d' \
+  "$OHAYO_BACKUP/crontab" > "$OHAYO_BACKUP/crontab.new"
+printf '%s\n' \
+  '28 8 * * * /data/data/com.termux/files/home/bin/run-ohayo-bot-cron' \
+  '*/5 * * * * /data/data/com.termux/files/usr/bin/timeout 50 /data/data/com.termux/files/usr/bin/sh /data/data/com.termux/files/home/bin/start-ohayo-services cron >/dev/null 2>&1' \
+  >> "$OHAYO_BACKUP/crontab.new"
+crontab "$OHAYO_BACKUP/crontab.new"
+"$OHAYO_HOME/bin/run-ohayo-bot-cron" --check
+printf 'SERVICES_INSTALLED backup=%s\n' "$OHAYO_BACKUP"

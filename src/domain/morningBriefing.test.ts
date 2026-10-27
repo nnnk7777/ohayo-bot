@@ -280,13 +280,13 @@ describe("planMorningBriefing", () => {
       schedules: [],
       commuteIssues: [
         {
-          lineName: "中央線快速電車",
+          lineName: "テストJR線",
           state: "disrupted",
           detail: "一部列車に遅れがでています。",
           sourceUrl: "https://example.com/jr",
         },
         {
-          lineName: "南北線",
+          lineName: "テストメトロ線",
           state: "unknown",
           detail: "公式情報を取得できませんでした。",
           sourceUrl: "https://example.com/metro",

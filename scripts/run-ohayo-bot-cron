@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/sh
 
-set -u
+set -eu
 umask 077
 
 OHAYO_PROJECT_DIR="/data/data/com.termux/files/home/ohayo-bot"
@@ -13,36 +13,63 @@ OHAYO_LD_PRELOAD="/data/data/com.termux/files/usr/lib/libtermux-exec-ld-preload.
 
 mkdir -p "$OHAYO_STATE_DIR"
 
-if [ "${1:-}" = "--check" ]; then
+OHAYO_RUN_MODE="scheduled"
+case "${1:-}" in
+  "") ;;
+  --now) OHAYO_RUN_MODE="now" ;;
+  --check)
   test -d "$OHAYO_PROJECT_DIR"
   test -x "/data/data/com.termux/files/usr/bin/pnpm"
   test -x "/data/data/com.termux/files/usr/bin/flock"
   test -x "/data/data/com.termux/files/usr/bin/ffmpeg"
   test -x "/data/data/com.termux/files/usr/bin/ffprobe"
+  test -x "/data/data/com.termux/files/usr/bin/timeout"
   test -f "$OHAYO_LD_PRELOAD"
   test -f "$OHAYO_PROJECT_DIR/assets/audio/generic-closing-zero-lead.wav"
   printf '%s\n' "CRON_RUNNER_CHECK_OK"
   exit 0
+  ;;
+  *)
+    printf '%s\n' "usage: run-ohayo-bot-cron [--check|--now]" >&2
+    exit 64
+  ;;
+esac
+
+# Acquire before opening shared logs: a rejected concurrent run must not erase
+# diagnostics or stop the player belonging to the active run.
+exec 9>"$OHAYO_LOCK_FILE"
+if /data/data/com.termux/files/usr/bin/flock -n -E 75 9; then
+  :
+else
+  OHAYO_LOCK_EXIT=$?
+  if [ "$OHAYO_LOCK_EXIT" -eq 75 ]; then
+    printf '%s SKIPPED_ALREADY_RUNNING source=%s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$OHAYO_RUN_MODE" >> "$OHAYO_STATUS_LOG"
+  fi
+  exit "$OHAYO_LOCK_EXIT"
 fi
 
-printf '%s START\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" >> "$OHAYO_STATUS_LOG"
+# Retain the most recent failure even after a later successful run.
+if [ -f "$OHAYO_RUN_LOG" ]; then
+  mv -f "$OHAYO_RUN_LOG" "$OHAYO_STATE_DIR/last-failed-run.log"
+fi
+printf '%s START source=%s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$OHAYO_RUN_MODE" >> "$OHAYO_STATUS_LOG"
+export PATH="$OHAYO_PATH" LD_PRELOAD="$OHAYO_LD_PRELOAD"
+if [ "$OHAYO_RUN_MODE" = scheduled ]; then
+  export SPEECH_PLAY_AT=08:30
+else
+  unset SPEECH_PLAY_AT
+fi
 
-PATH="$OHAYO_PATH" LD_PRELOAD="$OHAYO_LD_PRELOAD" /data/data/com.termux/files/usr/bin/flock \
-  -n -E 75 "$OHAYO_LOCK_FILE" \
-  /data/data/com.termux/files/usr/bin/sh -c \
-  '/data/data/com.termux/files/usr/bin/termux-media-player stop >/dev/null 2>&1 || true; cd /data/data/com.termux/files/home/ohayo-bot && exec /data/data/com.termux/files/usr/bin/env SPEECH_PLAY_AT=08:30 /data/data/com.termux/files/usr/bin/pnpm start' \
-  > "$OHAYO_RUN_LOG" 2>&1
-OHAYO_EXIT_CODE=$?
+OHAYO_EXIT_CODE=0
+/data/data/com.termux/files/usr/bin/sh -c \
+  '/data/data/com.termux/files/usr/bin/timeout -k 2 8 /data/data/com.termux/files/usr/bin/termux-media-player stop >/dev/null 2>&1 || true; cd /data/data/com.termux/files/home/ohayo-bot && exec /data/data/com.termux/files/usr/bin/pnpm start' \
+  > "$OHAYO_RUN_LOG" 2>&1 || OHAYO_EXIT_CODE=$?
 
 if [ "$OHAYO_EXIT_CODE" -eq 0 ]; then
-  printf '%s OK\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" >> "$OHAYO_STATUS_LOG"
-  rm -f "$OHAYO_RUN_LOG"
-elif [ "$OHAYO_EXIT_CODE" -eq 75 ]; then
-  printf '%s SKIPPED_ALREADY_RUNNING\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" >> "$OHAYO_STATUS_LOG"
+  printf '%s OK source=%s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$OHAYO_RUN_MODE" >> "$OHAYO_STATUS_LOG"
   rm -f "$OHAYO_RUN_LOG"
 else
-  printf '%s FAILED exit=%s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$OHAYO_EXIT_CODE" >> "$OHAYO_STATUS_LOG"
+  printf '%s FAILED exit=%s source=%s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$OHAYO_EXIT_CODE" "$OHAYO_RUN_MODE" >> "$OHAYO_STATUS_LOG"
   chmod 600 "$OHAYO_RUN_LOG"
 fi
-
 exit "$OHAYO_EXIT_CODE"

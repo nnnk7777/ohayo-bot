@@ -57,9 +57,11 @@ pnpm dev
 SPEECH_ENGINE=openai
 ```
 
+SPEECH_ENGINE=openai の通常の読み上げは、Realtime APIの `gpt-realtime-2.1-mini` を使います。声は `marin`、速度は1.03で、声の張りを抑えた、やや高めで明るい話し方に設定しています。音声はMP3へ変換したうえで、既存の末尾検査・再生成・締めの補完・時刻待機を通します。
+
 OpenAI TTSの再生プレイヤーは標準でOSに合わせて選びます。macOSでは `afplay`、Linux（Raspberry Piを含む）では `mpg123`、AndroidのTermuxでは `termux-media-player` を使います。Linuxでは事前に `sudo apt install mpg123 ffmpeg` を実行してください。macOSでは `brew install ffmpeg`、AndroidではTermux本体と同じ配布元のTermux:APIアプリをインストールしたうえで、Termuxから `pkg install termux-api ffmpeg` を実行してください。
 
-OpenAI TTSでは生成音声の末尾を検査し、締めが欠けていた場合に限り、時間の許す範囲で全文を最大2回再生成します。すべて欠けた場合でも、一つ前の文まで完全なら、Git管理された `assets/audio/generic-closing-zero-lead.wav` を自然な文間へ調整して連結します。生成音声・文字起こし・判定結果は、認証情報を含まないローカル診断データとして `~/.local/state/ohayo-bot/tts/` に権限を制限して保存され、14日を過ぎた実行分は次回生成時に削除されます。原稿には個人的な予定が含まれ得るため、このディレクトリを公開したりGitへ追加したりしないでください。
+OpenAI TTSでは生成音声の末尾を検査し、締めが欠けていた場合に限り、時間の許す範囲で全文を最大2回再生成します。すべて欠けた場合でも、一つ前の文まで完全なら、Git管理された `assets/audio/generic-closing-zero-lead.wav` を自然な文間へ調整して連結します。生成音声・生成側の文字起こし・音声末尾の独立した文字起こし・モデル名を含む判定結果は、認証情報を含まないローカル診断データとして `~/.local/state/ohayo-bot/tts/` に権限を制限して保存され、14日を過ぎた実行分は次回生成時に削除されます。原稿には個人的な予定が含まれ得るため、このディレクトリを公開したりGitへ追加したりしないでください。
 
 Cronより少し前に生成を始め、指定時刻まで再生を待つ場合は、そのCronプロセスだけに `SPEECH_PLAY_AT=08:30` を設定します。手動実行では未設定のままにすると、準備が完了次第すぐ再生します。
 
@@ -69,6 +71,21 @@ AndroidのTermuxで毎朝8:30に再生する場合は、Git管理されたラン
 install -m 700 scripts/run-ohayo-bot-cron "$HOME/bin/run-ohayo-bot-cron"
 (crontab -l 2>/dev/null | grep -v 'run-ohayo-bot-cron'; printf '%s\n' '28 8 * * * /data/data/com.termux/files/home/bin/run-ohayo-bot-cron') | crontab -
 ```
+
+Cron・SSH・再生サービスと監視をまとめて配置し直す場合は、Android上で次を実行します。既存の対象スクリプトとcrontabは端末内へバックアップし、無関係なCronエントリは残します。アプリ本体のビルド・配備は別途必要です。
+
+```sh
+sh scripts/install-ohayo-services
+~/bin/start-ohayo-services
+termux-job-scheduler --job-id 830 --script "$HOME/bin/watch-ohayo-services" \
+  --period-ms 900000 --persisted true --network none --battery-not-low false
+```
+
+Termux:Bootはインストール後に一度開き、Termux・Termux:API・Termux:Bootを電池最適化の対象外にします。起動時と約15分間隔の永続JobSchedulerでは監視ループそのものをTermuxのバックグラウンドタスクとして実行し、5分ごとのCronからもループの停止を補います。ループはrunitとは独立して約1分ごとにサービスを確認し、停止したループ自体もCron／JobSchedulerから再作成します。JobSchedulerはネット接続を起動条件にせず、正確な時刻の実行はCronが担当します。Androidの強制停止やメーカー独自のバックグラウンド制限まで復旧を保証するものではありません。
+
+監視はSSHの実際の鍵交換と、再生HTTPサービスへの再生しないGET要求の応答も確認します。runitの親を失った既知のサービスプロセスを整理してポート競合を防ぎ、再生サービスのログはsvlogdで約1.1MBまでに制限します。復旧・監視ログも1MBを超えたら末尾512KBを残します。実行が重なった場合はロック取得前に音声停止や共有ログの変更を行いません。直前の失敗ログは次の実行時に `~/.local/state/ohayo-bot/last-failed-run.log` へ残します。原稿を含み得るため公開しないでください。
+
+Wi-Fiを変更したら、Androidの接続とインターネット疎通に加え、iPhoneショートカットの接続先IP、Androidの `REMOTE_PLAYBACK_ALLOWED_IP`（iPhone側のIP）を更新します。SSHは標準の8022番・全アドレス待受を使い、固定IPをSSH設定へ埋め込みません。ルーターのDHCP予約でAndroidとiPhoneのIPを固定すると、変更時の作業を減らせます。
 
 ### Android端末上での更新とビルド
 
@@ -197,3 +214,62 @@ termux-job-scheduler --script /data/data/com.termux/files/home/bin/ensure-ohayo-
 ```
 
 手動復旧は `~/.termux/boot/start-ohayo-services` を実行します。状態は `sv status "$PREFIX/var/service/sshd" "$PREFIX/var/service/crond"` と監視ログで確認します。AndroidがTermux全体を強制停止した場合やWi-FiのIPが変わった場合には、この監視だけでは外部からの接続を保証できません。
+
+## iPhoneショートカットからAndroidで即時再生
+
+iOSの「URLの内容を取得」からAndroidへ再生リクエストを送れます。エンドポイントは任意コマンドを受け付けず、`POST /v1/play` のJSON本文が完全一致した場合だけ `run-ohayo-bot-cron --now` を起動します。次の防御をすべて通過する必要があります。
+
+- 送信元IPv4アドレスが `REMOTE_PLAYBACK_ALLOWED_IP` と完全一致する。
+- `Content-Type: application/json` で、本文のキーが `action` と `token` だけである。
+- `action` が `play`、トークンのSHA-256が設定値と一致する。
+- 前回受理から標準3分が経過し、標準1日6回の上限内である。
+- 朝の実行を含む既存の排他ロックを取得できる。
+
+トークンは十分に長いランダム値をiPhoneだけに保存し、Androidの `.env` には平文ではなくSHA-256を設定します。リクエスト本文・トークン・原稿はログへ残しません。状態は `~/.local/state/ohayo-bot/remote-playback.json` に権限600で保存され、サービス再起動後も回数制限が続きます。
+
+Androidではビルド後、runitサービスを次のように配置します。
+
+```sh
+install -d -m 700 "$PREFIX/var/service/ohayo-remote-playback"
+install -m 700 scripts/run-ohayo-remote-playback-service "$PREFIX/var/service/ohayo-remote-playback/run"
+sv up "$PREFIX/var/service/ohayo-remote-playback"
+```
+
+iPhoneショートカットではURLを `http://<Androidの固定LAN IP>:8765/v1/play`、メソッドをPOST、本文をJSONにして次の辞書を送ります。
+
+```json
+{
+  "action": "play",
+  "token": "iPhoneだけに保存するランダムトークン"
+}
+```
+
+AndroidとiPhoneはルーターのDHCP予約でIPを固定してください。ポート8765をルーターでインターネットへ転送しないでください。HTTPのためLAN管理者や侵害済み端末からの盗聴可能性は残りますが、送信元IP制限、長いトークン、クールダウン、日次上限により再生の悪用を局所化します。外出先から使う場合はポート公開ではなくVPNを使用します。
+
+## Realtime音声への移行試聴
+
+`gpt-realtime-2.1-mini` を、原稿を生成し直さず固定テキストで試聴できます。通常の朝の実行も同じRealtimeモデルを使います。モデルは `src/bootstrap/realtimeSpeechProfile.ts`、声・速度・話し方は `src/bootstrap/speechProfile.ts` で管理します。
+
+```sh
+pnpm voice:realtime -- --text-file=/absolute/path/sample.txt --output-dir=/absolute/path/new-sample
+```
+
+新規の保存先ディレクトリへ `sample.wav`、`input.txt`、`transcript.txt`、`profile.json` を保存します。ディレクトリは700、ファイルは600に制限し、既存の保存先は上書きしません。原稿と生成側の文字起こしを比較してから再生するには、Macで `afplay /absolute/path/new-sample/sample.wav` を実行します。すぐ再生する場合は生成コマンドへ `--play` を付けてください。
+
+このコマンドはRealtime APIによる音声生成だけを行い、予定・天気の取得、ニュース検索、原稿生成、メール送信は行いません。60秒で生成を打ち切り、未完了の音声は保存しません。通常のTTS経路の音声末尾検査や再生成・締めの連結は試聴には含めていません。`transcript.txt` は生成側の文字起こしであり、音声から独立に認識し直した結果ではありません。
+
+移行先と接続方式は [OpenAI公式のTTS移行案内](https://developers.openai.com/api/docs/guides/text-to-speech) と [RealtimeのWebSocketガイド](https://developers.openai.com/api/docs/guides/realtime-websocket) を参照してください。APIのモデル名を変更するだけでは移行できないため、試聴用の経路を分けています。
+
+## 朝のニュース
+
+`NEWS_ENABLED=true` にすると、興味分野に合う最近のニュースを最大1件追加します。`src/bootstrap/newsProfile.ts` の重みで、音楽・映画・ゲームを優先し、文学・言語・料理・道具・体験も候補に含め、技術は補助的に選びます。個人の地域名・好きな作品やアーティスト・除外したい話題は、Git管理しない `src/bootstrap/personalProfile.ts` の `news.localAreas`・`news.interests`・`news.excludedTopics` に設定します。個人設定がある項目はそちらを優先します。既存プロフィールへ追加する場合は `NewsPreferences` 型を `src/domain/morningNews.ts` から読み込み、型に `news?: NewsPreferences` を追加してください。公開する雛形には具体的な地域名や好みを入れません。
+
+分野名が合うだけでは採用せず、好きな作品・アーティスト・表現との具体的な接点、または聴く・観る・読む・出かける・試すにつながる機会を説明できる話題を選びます。選定理由にもその接点を記載します。
+
+取得には [OpenAI Responses APIのWeb検索](https://developers.openai.com/api/docs/guides/tools-web-search)を使います。検索結果で確認された元記事URLがあり、一般ニュースは公開日が当日から過去3日以内のものを採用します。イベント・特集上映は公開日が古くても、確認済みの開催期間が開催前・開催中なら候補にします。開催開始日・終了日・場所を確認し、終了済みのものや開催期間が不明なものは選びません。良い話題がない日は省略します。追加のAIリクエストは1回で、検索は20秒で打ち切り、失敗時も天気・予定の案内を続けます。
+
+音声には固有名詞を含む80文字以内の短い一文だけを渡します。予定が4件以上ある場合など原稿の目安が45秒を超える朝や、運行情報の案内がある朝には検索を行いません。ニュースを追加した場合の原稿の目安は10秒だけ延ばします。
+
+詳細メールには見出し・要約・選定理由・公開日・元記事URLだけを含め、予定・天気・朝の原稿は含めません。既存の `pnpm auth:mail` による送信専用権限（`gmail.send`）のトークンと `ERROR_REPORT_GOOGLE_*`、`ERROR_REPORT_EMAIL_FROM` を再利用します。受信メールを読む権限や処理は追加しません。宛先は `NEWS_EMAIL_TO`、未指定なら `ERROR_REPORT_EMAIL_TO` を使います。自分宛てのアドレスを設定してください。エラー通知自体の有効・無効とは独立しています。
+
+通常の実行では原稿生成後にニュースメールを1通送り、送信に失敗しても音声を続けます。`--no-speech` ではニュース検索と原稿生成は行いますが、メールを送りません。再生が成功した後に、紹介した記事の見出しとURLを `~/.local/state/ohayo-bot/news-history.json` に直近200件まで保存し、次回の検索で除外します。予定や天気は保存しません。追跡パラメータやフラグメントだけが違う同じ記事も除外します。別媒体の同じイベントを除外する判断はAIが行います。`--no-speech` や再生失敗時は紹介済みとして記録しません。履歴の読込に失敗した場合はニュースを省き、保存失敗の場合はエラーレポートに記録します。履歴は端末ごとに保持します。

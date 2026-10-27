@@ -10,6 +10,10 @@ export type DetectedSilence = {
   durationSeconds: number;
 };
 
+export async function convertAudioToMp3(inputPath: string, outputPath: string): Promise<void> {
+  await runFfmpeg(["-y", "-i", inputPath, "-vn", "-ar", "24000", "-ac", "1", "-b:a", "128k", outputPath]);
+}
+
 export async function extractAudioTail(inputPath: string, outputPath: string, seconds = 12): Promise<void> {
   await runFfmpeg([
     "-y", "-sseof", `-${seconds}`, "-i", inputPath,

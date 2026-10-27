@@ -1,5 +1,6 @@
 import type { MorningBriefingPlan, Schedule, Weather } from "../domain/morningBriefing.js";
 import type { TrainOperationStatus } from "../domain/trainOperation.js";
+import type { NewsItem, IntroducedNews } from "../domain/morningNews.js";
 
 export type Today = {
   date: string;
@@ -28,4 +29,17 @@ export interface BriefingNarrator {
 
 export interface Speaker {
   speak(text: string): Promise<void>;
+}
+
+export interface NewsProvider {
+  getNews(today: Today, introduced?: readonly IntroducedNews[]): Promise<NewsItem | undefined>;
+}
+
+export interface NewsHistory {
+  read(): Promise<IntroducedNews[]>;
+  record(item: IntroducedNews): Promise<void>;
+}
+
+export interface NewsMailer {
+  sendNews(item: NewsItem): Promise<void>;
 }

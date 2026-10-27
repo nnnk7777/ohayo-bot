@@ -1,0 +1,9 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+umask 077
+OHAYO_PREFIX=/data/data/com.termux/files/usr
+OHAYO_LOG="$OHAYO_PREFIX/var/log/sv/ohayo-remote-playback"
+mkdir -p "$OHAYO_LOG"
+# At most ten 100 KB rotated logs, plus the current file.
+printf 's100000\nn10\n' > "$OHAYO_LOG/config"
+exec "$OHAYO_PREFIX/bin/svlogd" -tt "$OHAYO_LOG"

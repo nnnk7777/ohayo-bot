@@ -1,12 +1,23 @@
 import type { DailyRoutine } from "../domain/personalProfile/dailyRoutine.js";
 import type { ScheduleRules } from "../domain/personalProfile/scheduleRules.js";
+import type { NewsPreferences } from "../domain/morningNews.js";
 
 // 個人的な設定の雛形。コピーした personalProfile.ts はGit管理しない。
-export const personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: ScheduleRules } = {
+export const personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: ScheduleRules; news?: NewsPreferences; speechReadings?: Record<string, string> } = {
+  // 音声用の固有名詞の読み。実際の駅名・路線名などは personalProfile.ts にだけ記入します。
+  speechReadings: {},
+  // 興味のある地域。実際の地域名はGit管理しない personalProfile.ts にだけ記入します。
+  news: {
+    localAreas: [],
+    // 好きな作品・アーティスト、知りたい情報の種類を指定すると選定に使います。
+    // 未指定時は newsProfile.ts の分野・重みを使います。
+    // interests: [{ topic: "好きな作品に関連する新作・特集上映", weight: 3 }],
+    // excludedTopics: ["興味のない情報の種類"],
+  },
   dailyRoutine: {
     // 1=月曜, 2=火曜, ... 7=日曜
-    officeWeekdays: [1, 3, 4],
-    remoteWeekdays: [2, 5],
+    officeWeekdays: [1, 2, 3, 4, 5],
+    remoteWeekdays: [],
     // 出社日のみ、各社の公式ページから運行情報を確認します。
     commute: {
       segments: [
@@ -16,7 +27,7 @@ export const personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: Sched
         //   lineName: "対象路線名",
         //   source: { kind: "jr-east", officialUrl: "JR東日本の対象路線公式URL" },
         //   // 東京メトロの場合は kind、officialUrl に加えて公式JSONの lineId も指定します。
-        //   // source: { kind: "tokyo-metro", officialUrl: "対象路線公式URL", lineId: "namboku" },
+        //   // source: { kind: "tokyo-metro", officialUrl: "対象路線公式URL", lineId: "対象路線のID" },
         // },
       ],
     },
