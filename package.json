@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx src/cli/index.ts",
     "briefing:sample": "tsx src/cli/briefingSample.ts",
+    "briefing:check": "tsx src/cli/briefingCheck.ts",
     "voice:sample": "tsx src/cli/voiceSample.ts",
     "voice:realtime": "tsx src/cli/realtimeVoiceSample.ts",
     "voice:live": "tsx src/cli/liveVoiceSample.ts",
