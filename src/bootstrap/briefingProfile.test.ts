@@ -2,6 +2,29 @@ import { describe, expect, it } from "vitest";
 import { morningBriefingProfile } from "./briefingProfile.js";
 
 describe("morningBriefingProfile", () => {
+  it("予定と時間帯別の雨を短くつなぎ、時刻・移動・目的地の天気を推測しない", () => {
+    const instructions = morningBriefingProfile.instructions;
+    expect(instructions).toContain("weather.scheduleContext");
+    expect(instructions).toContain("同じ予定・時刻・傘の注意を別の箇所や締めで繰り返さない");
+    expect(instructions).toContain("他の予定も省略しない");
+    expect(instructions).toContain("目的地の天気とは断定しない");
+    expect(instructions).toContain("出発・移動・帰宅時刻");
+    expect(instructions).toContain("日全体の予報だけで特定の予定と雨の時間帯を結び付けない");
+  });
+
+  it("予報の数字や地名・時刻を繰り返さず、雨量に基づいて注意を調整する", () => {
+    const instructions = morningBriefingProfile.instructions;
+    expect(instructions).toContain("数字は内部の判断用なので読み上げない");
+    expect(instructions).toContain("予報の地点名は冒頭の天気で一度だけ");
+    expect(instructions).toContain("予定名や行き先に必要な地名は省かない");
+    expect(instructions).toContain("予報の開始・終了時刻を数字で重ねて説明しない");
+    expect(instructions).toContain("lightは");
+    expect(instructions).toContain("normalは");
+    expect(instructions).toContain("strongerは");
+    expect(instructions).toContain("降水確率の高さから雨の強さを推測しない");
+    expect(instructions).toContain("雨が強まる・弱まるという時間変化");
+  });
+
   it("今日の予定がない日は、先の予定の補足があっても予定なしの案内を求める", () => {
     expect(morningBriefingProfile.instructions).toContain(
       'agendaがない、またはagenda.itemsが空の場合は、「今日は、予定のお知らせはありません。」と一度伝えてください。',

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runMorningBriefing } from "./runMorningBriefing.js";
+import type { MorningBriefingPlan } from "../domain/morningBriefing.js";
 
 const today = { date: "2026-09-01", timeZone: "Asia/Tokyo" };
 const personalProfile = {
@@ -15,6 +16,37 @@ afterEach(() => {
 });
 
 describe("runMorningBriefing", () => {
+  it("外出予定の開始時刻に合う雨の事実を1回の原稿生成へ渡す", async () => {
+    const narrator = { narrate: vi.fn(async (_plan: MorningBriefingPlan) => "今日の原稿です。") };
+    const dinner = { title: "食事", startTime: "19:00", isAllDay: false, requiresGoingOut: true };
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    await runMorningBriefing({
+      personalProfile,
+      scheduleProvider: { getSchedules: vi.fn().mockResolvedValue([dinner]) },
+      weatherProvider: { getWeather: vi.fn().mockResolvedValue({
+        condition: "clear", currentCelsius: 20, lowCelsius: 15, highCelsius: 25, rainProbability: 70,
+        hourlyPrecipitation: [{ startTime: "19:00", endTime: "20:00", precipitationProbability: 70, rainMillimeters: 0.4 }],
+      }) },
+      holidayProvider: { isHoliday: vi.fn().mockResolvedValue(false) },
+      narrator,
+      speaker: { speak: vi.fn() },
+    }, { today, speak: false });
+    expect(narrator.narrate).toHaveBeenCalledTimes(1);
+    expect(narrator.narrate).toHaveBeenCalledWith(expect.objectContaining({
+      agenda: { items: [dinner] },
+      weather: expect.objectContaining({
+        scheduleContext: {
+          kind: "rain-near-schedule",
+          schedule: { title: "食事", startTime: "19:00" },
+          forecast: { startTime: "19:00", endTime: "20:00", precipitationProbability: 70, rainMillimeters: 0.4, intensity: "light" },
+        },
+      }),
+    }));
+    const plan = narrator.narrate.mock.calls[0][0];
+    expect(plan.weather.umbrellaAdvice).toBeUndefined();
+    expect(plan.weather).not.toHaveProperty("hourlyPrecipitation");
+  });
+
   it("天気と予定から原稿を作り、読み上げる", async () => {
     const scheduleProvider = {
       getSchedules: vi.fn().mockResolvedValue([]),

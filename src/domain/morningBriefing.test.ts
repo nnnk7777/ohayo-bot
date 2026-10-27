@@ -2,6 +2,39 @@ import { describe, expect, it } from "vitest";
 import { planMorningBriefing, upcomingBriefingDates } from "./morningBriefing.js";
 
 describe("planMorningBriefing", () => {
+  const contextWeather = {
+    condition: "clear" as const, currentCelsius: 20, lowCelsius: 15, highCelsius: 25, rainProbability: 10,
+    hourlyPrecipitation: [{ startTime: "19:00", endTime: "20:00", precipitationProbability: 70, rainMillimeters: 1 }],
+  };
+  const dinner = { title: "食事", startTime: "19:00", isAllDay: false, requiresGoingOut: true };
+
+  it("外出予定と雨の文脈を渡し、傘の一般案内を重複させず全予定を維持する", () => {
+    const schedules = [{ title: "オンライン会議", startTime: "10:00", isAllDay: false }, dinner];
+    const plan = planMorningBriefing({ date: "2026-10-27", weather: contextWeather, schedules });
+    expect(plan.weather.scheduleContext?.schedule).toEqual({ title: "食事", startTime: "19:00" });
+    expect(plan.weather.umbrellaAdvice).toBeUndefined();
+    expect(plan.agenda?.items).toEqual(schedules);
+    expect(plan.closing.kind).toBe("weather-advice");
+    expect(plan.targetDurationSeconds).toBe(45);
+  });
+
+  it("外出しない場合は、時間帯別の予報があっても補足を作らない", () => {
+    const plan = planMorningBriefing({ date: "2026-10-27", weather: contextWeather, schedules: [dinner], isLikelyGoingOut: false });
+    expect(plan.weather.scheduleContext).toBeUndefined();
+    expect(plan.weather.umbrellaAdvice).toBeUndefined();
+  });
+
+  it("予定時刻と合わない場合や時間帯別予報がない場合は従来の傘案内を維持する", () => {
+    for (const hourlyPrecipitation of [undefined, contextWeather.hourlyPrecipitation]) {
+      const plan = planMorningBriefing({
+        date: "2026-10-27", weather: { ...contextWeather, rainProbability: 70, hourlyPrecipitation },
+        schedules: [{ ...dinner, startTime: "12:00" }],
+      });
+      expect(plan.weather.scheduleContext).toBeUndefined();
+      expect(plan.weather.umbrellaAdvice).toBeDefined();
+    }
+  });
+
   it("天気を丸め、最初の3件の予定と傘の案内をまとめる", () => {
     const plan = planMorningBriefing({
       date: "2026-09-01",

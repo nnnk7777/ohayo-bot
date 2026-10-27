@@ -53,9 +53,9 @@ function isExplicitOfficeWork(schedule: Schedule): boolean {
   return /出社|オフィス勤務/.test(text);
 }
 
-function hasOutsideSchedule(schedule: Schedule): boolean {
+export function hasOutsideSchedule(schedule: Schedule): boolean {
   const text = `${schedule.title}\n${schedule.description ?? ""}\n${schedule.location ?? ""}`.toLowerCase();
-  if (/zoom|google meet|teams|オンライン|リモート/.test(text)) return false;
+  if (/zoom|google meet|meet\.google\.com|teams|オンライン|リモート/.test(text)) return false;
   if (schedule.requiresGoingOut) return true;
   return Boolean(schedule.location?.trim()) || /出社|外出|訪問|通院|病院|歯科/.test(text);
 }

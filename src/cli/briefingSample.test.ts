@@ -21,6 +21,6 @@ describe("briefing sample CLI", () => {
   });
 
   it("範囲外の番号を拒否する", () => {
-    expect(() => parseScenarioSelection("13")).toThrow("シナリオ番号は 1〜12");
+    expect(() => parseScenarioSelection("14")).toThrow("シナリオ番号は 1〜13");
   });
 });

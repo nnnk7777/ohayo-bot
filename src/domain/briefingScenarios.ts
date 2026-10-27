@@ -4,6 +4,7 @@ export const briefingScenarioNames = [
   "rain",
   "rain-going-out",
   "rain-staying-home",
+  "rain-evening-out",
   "busy",
   "quiet",
   "hot",
@@ -21,6 +22,7 @@ export const briefingScenarioLabels: Record<BriefingScenarioName, string> = {
   rain: "雨（予定なし）",
   "rain-going-out": "雨＋外出予定あり",
   "rain-staying-home": "雨＋在宅想定",
+  "rain-evening-out": "今は晴れ＋夜の外出予定に重なる雨",
   busy: "予定多数",
   quiet: "予定なし・穏やかな日",
   hot: "暑さ＋日差し",
@@ -50,7 +52,10 @@ export function composeBriefingScenario(names: BriefingScenarioName[]): MorningB
       currentCelsius: isCold ? 5 : isHot ? 28 : 20,
       lowCelsius: isCold ? 1 : isHot ? 25 : 15,
       highCelsius: isCold ? 10 : isHot ? 35 : 25,
-      rainProbability: isRainy ? 80 : 10,
+      rainProbability: isRainy ? 80 : selected.has("rain-evening-out") ? 70 : 10,
+      hourlyPrecipitation: selected.has("rain-evening-out")
+        ? [{ startTime: "19:00", endTime: "20:00", precipitationProbability: 70, rainMillimeters: 0.4 }]
+        : undefined,
       apparentLowCelsius: isCold ? 2 : undefined,
       apparentHighCelsius: isHot ? 37 : undefined,
       maxUvIndex: isHot ? 8 : selected.has("sunny-uv") ? 7 : undefined,
@@ -85,6 +90,9 @@ function combinedSchedules(selected: Set<BriefingScenarioName>): Schedule[] {
       { title: "家族の記念日", description: "帰宅時に小さな花を買う。", isAllDay: true },
       { title: "夕食の予約", startTime: "19:00", isAllDay: false },
     ];
+  }
+  if (selected.has("rain-evening-out")) {
+    return [{ title: "食事", startTime: "19:00", isAllDay: false, requiresGoingOut: true }];
   }
   if (selected.has("rain-going-out")) {
     return [{ title: "外出予定", startTime: "10:00", isAllDay: false }];
@@ -131,6 +139,7 @@ const scenarios: Record<BriefingScenarioName, MorningBriefingPlan> = {
     schedules: [],
     isLikelyGoingOut: false,
   }),
+  "rain-evening-out": composeBriefingScenario(["rain-evening-out"]),
   busy: planMorningBriefing({
     date: "2026-09-03",
     locationName: "武蔵野市",

@@ -1,6 +1,15 @@
 import type { CommuteIssue } from "./trainOperation.js";
+import { selectWeatherScheduleContext, type WeatherScheduleContext } from "./weatherScheduleContext.js";
 
 export type WeatherCondition = "clear" | "cloudy" | "rain" | "snow" | "other";
+
+// 設定地点の、当日の現地時刻で表した1時間の降水予報。終端だけ24:00を許可する。
+export type HourlyPrecipitation = {
+  startTime: string;
+  endTime: string;
+  precipitationProbability: number;
+  rainMillimeters: number;
+};
 
 export type Weather = {
   condition: WeatherCondition;
@@ -12,6 +21,7 @@ export type Weather = {
   apparentHighCelsius?: number;
   maxUvIndex?: number;
   maxWindSpeedKmh?: number;
+  hourlyPrecipitation?: HourlyPrecipitation[];
 };
 
 export type Schedule = {
@@ -43,6 +53,7 @@ export type MorningBriefingPlan = {
     highCelsius: number;
     umbrellaAdvice?: string;
     seasonalAdvice?: string[];
+    scheduleContext?: WeatherScheduleContext;
   };
   agenda?: {
     items: Schedule[];
@@ -79,8 +90,11 @@ export function planMorningBriefing(input: {
   commuteIssues?: CommuteIssue[];
 }): MorningBriefingPlan {
   const schedulesToMention = input.schedules;
+  const scheduleContext = input.isLikelyGoingOut === false
+    ? undefined
+    : selectWeatherScheduleContext(schedulesToMention, input.weather.hourlyPrecipitation ?? []);
   const shouldBringUmbrella = input.isLikelyGoingOut !== false && (
-    input.weather.condition === "rain" || input.weather.rainProbability >= 40
+    input.weather.condition === "rain" || input.weather.rainProbability >= 40 || Boolean(scheduleContext)
   );
   const seasonalAdvice = input.isLikelyGoingOut !== false ? seasonalAdviceFor(input.weather) : [];
   const weekdayFocus = input.isHoliday
@@ -100,10 +114,12 @@ export function planMorningBriefing(input: {
       currentCelsius: Math.round(input.weather.currentCelsius),
       lowCelsius: Math.round(input.weather.lowCelsius),
       highCelsius: Math.round(input.weather.highCelsius),
-      umbrellaAdvice: shouldBringUmbrella
+      // 予定に結び付けて傘を案内する場合は、一般的な傘の一文を重ねない。
+      umbrellaAdvice: shouldBringUmbrella && !scheduleContext
         ? "雨の可能性があるため、傘があると安心です。"
         : undefined,
       seasonalAdvice: seasonalAdvice.length > 0 ? seasonalAdvice : undefined,
+      ...(scheduleContext ? { scheduleContext } : {}),
     },
     agenda:
       schedulesToMention.length > 0
