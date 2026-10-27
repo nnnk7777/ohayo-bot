@@ -1,6 +1,6 @@
 import { personalProfile } from "./personalProfile.js";
 
-// 採用したGPT-Liveの音声設定。毎朝の読み上げ処理への接続は別途行う。
+// 通常の朝の読み上げとGPT-Liveの試聴で共通の音声設定を使う。
 export const liveSpeechProfile = {
   model: "gpt-live-1",
   voice: "harema",

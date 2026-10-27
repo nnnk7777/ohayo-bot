@@ -11,6 +11,7 @@
     "briefing:sample": "tsx src/cli/briefingSample.ts",
     "voice:sample": "tsx src/cli/voiceSample.ts",
     "voice:realtime": "tsx src/cli/realtimeVoiceSample.ts",
+    "voice:live": "tsx src/cli/liveVoiceSample.ts",
     "auth": "tsx src/cli/index.ts auth",
     "auth:mail": "tsx src/cli/index.ts auth:mail",
     "remote:playback": "node dist/cli/remotePlaybackServer.js",
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@types/luxon": "^3.7.1",
     "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.2",
     "tsx": "^4.23.13",
     "typescript": "5.9.3",
     "vitest": "^4.1.11"
