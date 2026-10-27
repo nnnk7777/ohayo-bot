@@ -7,6 +7,7 @@ describe("briefing scenarios", () => {
       "rain",
       "rain-going-out",
       "rain-staying-home",
+      "rain-evening-out",
       "busy",
       "quiet",
       "hot",
@@ -21,6 +22,13 @@ describe("briefing scenarios", () => {
 
   it("雨の日は傘を案内する事実を含む", () => {
     expect(getBriefingScenario("rain").weather.umbrellaAdvice).toBeDefined();
+  });
+
+  it("晴れている朝も、夜の予定と雨が重なるサンプルを確認できる", () => {
+    const plan = getBriefingScenario("rain-evening-out");
+    expect(plan.weather.condition).toBe("晴れ");
+    expect(plan.weather.scheduleContext?.schedule).toEqual({ title: "食事", startTime: "19:00" });
+    expect(plan.weather.umbrellaAdvice).toBeUndefined();
   });
 
   it("雨の日でも外出の見込みで傘の案内を切り替えられる", () => {
