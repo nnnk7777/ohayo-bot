@@ -16,7 +16,10 @@ dependencies:
     version: 3.7.2
   openai:
     specifier: ^7.8.0
-    version: 7.8.0
+    version: 7.8.0(ws@8.22.0)
+  ws:
+    specifier: ^8.22.0
+    version: 8.22.0
 
 devDependencies:
   '@types/luxon':
@@ -1178,7 +1181,7 @@ packages:
     engines: {node: '>=12.20.0'}
     dev: true
 
-  /openai@7.8.0:
+  /openai@7.8.0(ws@8.22.0):
     resolution: {integrity: sha512-/2g9JzdnXNcjX1W/UlSNu+OdSFDAaAVt0n9Onom0kPenH54o59G2WrX/xjTnr26UHNSh6hxcAf58doGYRme2rw==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
@@ -1201,6 +1204,8 @@ packages:
         optional: true
       zod:
         optional: true
+    dependencies:
+      ws: 8.22.0
     dev: false
 
   /package-json-from-dist@1.0.1:
@@ -1596,4 +1601,17 @@ packages:
       ansi-styles: 6.2.3
       string-width: 5.1.2
       strip-ansi: 7.2.0
+    dev: false
+
+  /ws@8.22.0:
+    resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
     dev: false

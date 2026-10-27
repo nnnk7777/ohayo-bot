@@ -22,7 +22,7 @@ const DEFAULT_CLOSING_AUDIO_PATH = fileURLToPath(
 );
 const DEFAULT_DIAGNOSTIC_RETENTION_DAYS = 14;
 
-type OpenAiTtsSpeakerOptions = {
+export type OpenAiTtsSpeakerOptions = {
   recordIssue?: IssueRecorder;
   maxAttempts?: number;
   preparationBudgetMs?: number;
@@ -32,6 +32,7 @@ type OpenAiTtsSpeakerOptions = {
   diagnosticRoot?: string;
   now?: () => number;
   sleep?: (milliseconds: number) => Promise<void>;
+  generateAudio?: (text: string, outputPath: string, timeoutMs: number) => Promise<{ transcript?: string }>;
 };
 
 type TtsCandidate = {
@@ -96,15 +97,26 @@ export class OpenAiTtsSpeaker implements Speaker {
         if (attempt > 1 && deadline - now() < 12_000) break;
         const audioPath = join(directory, `briefing-attempt-${attempt}.mp3`);
         try {
-          const speech = await this.client.audio.speech.create({
-            model: this.model,
-            voice: this.voice,
-            input: toJapaneseSpeechText(text),
-            response_format: "mp3",
-            instructions: this.instructions,
-            speed: this.speed,
-          }, { timeout: requestTimeout(deadline, now(), 35_000) });
-          await writeFile(audioPath, Buffer.from(await speech.arrayBuffer()), { mode: 0o600 });
+          if (this.options.generateAudio) {
+            const result = await this.options.generateAudio(text, audioPath, requestTimeout(deadline, now(), 35_000));
+            if (diagnosticDirectory && result.transcript) {
+              try {
+                await writeFile(join(diagnosticDirectory, `attempt-${attempt}-generated-transcript.txt`), result.transcript, { mode: 0o600 });
+              } catch {
+                this.options.recordIssue?.("TTS診断保存", "TRANSCRIPT_SAVE_FAILED");
+              }
+            }
+          } else {
+            const speech = await this.client.audio.speech.create({
+              model: this.model,
+              voice: this.voice,
+              input: toJapaneseSpeechText(text),
+              response_format: "mp3",
+              instructions: this.instructions,
+              speed: this.speed,
+            }, { timeout: requestTimeout(deadline, now(), 35_000) });
+            await writeFile(audioPath, Buffer.from(await speech.arrayBuffer()), { mode: 0o600 });
+          }
           await this.copyDiagnosticFile(audioPath, diagnosticDirectory, `attempt-${attempt}.mp3`);
 
           const candidate = await this.validateCandidate({
@@ -134,6 +146,9 @@ export class OpenAiTtsSpeaker implements Speaker {
       const playablePath = await this.prepareFallbackIfNeeded(bestCandidate, directory, diagnosticDirectory);
       await this.writeDiagnosticMetadata(diagnosticDirectory, {
         startedAt: new Date(startedAt).toISOString(),
+        model: this.model,
+        voice: this.voice,
+        speed: this.speed,
         playbackNotBefore: playbackNotBefore === undefined ? null : new Date(playbackNotBefore).toISOString(),
         selectedAttempt: bestCandidate.attempt,
         usedFallbackClosing: playablePath !== bestCandidate.audioPath,

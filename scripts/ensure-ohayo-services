@@ -7,57 +7,118 @@ OHAYO_STATE="$OHAYO_HOME/.local/state/ohayo-bot"
 SVDIR="$OHAYO_PREFIX/var/service"
 LOGDIR="$OHAYO_PREFIX/var/log"
 export SVDIR LOGDIR
+export HOME="$OHAYO_HOME"
 export PATH="$OHAYO_PREFIX/bin:$OHAYO_PREFIX/bin/applets"
 export LD_PRELOAD="$OHAYO_PREFIX/lib/libtermux-exec-ld-preload.so"
 mkdir -p "$OHAYO_STATE" "$OHAYO_PREFIX/var/run"
 exec 9>"$OHAYO_STATE/services-recovery.lock"
 flock -n 9 || exit 0
+# Keep the recovery log bounded, preserving the inode held by detached writers.
+for OHAYO_LOG in service-recovery-errors.log service-watchdog.log; do
+  OHAYO_LOG_PATH="$OHAYO_STATE/$OHAYO_LOG"
+  if [ -f "$OHAYO_LOG_PATH" ] && [ "$(wc -c < "$OHAYO_LOG_PATH")" -gt 1048576 ]; then
+    tail -c 524288 "$OHAYO_LOG_PATH" > "$OHAYO_LOG_PATH.trim"
+    cat "$OHAYO_LOG_PATH.trim" > "$OHAYO_LOG_PATH"
+    rm -f "$OHAYO_LOG_PATH.trim"
+  fi
+done
 log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$*" >> "$OHAYO_STATE/service-watchdog.log"; }
+# termux-exec may launch a binary through Android's linker64, keeping the
+# real executable twice at the start of argv. Validate both forms explicitly.
+process_is() {
+  OHAYO_PROCESS_PID="$1"
+  OHAYO_PROCESS_EXE="$2"
+  case "$OHAYO_PROCESS_PID" in ''|0|*[!0-9]*) return 1;; esac
+  # USB run-as and ordinary Termux can share a UID but have different SELinux
+  # domains. EPERM from kill -0 does not mean that a readable process is dead.
+  kill -0 "$OHAYO_PROCESS_PID" 2>/dev/null || [ -r "/proc/$OHAYO_PROCESS_PID/cmdline" ] || return 1
+  OHAYO_PROC_EXE=$(readlink "/proc/$OHAYO_PROCESS_PID/exe" 2>/dev/null)
+  [ "$OHAYO_PROC_EXE" != "$OHAYO_PROCESS_EXE" ] || return 0
+  case "$OHAYO_PROC_EXE" in
+    /system/bin/linker64|/apex/com.android.runtime/bin/linker64)
+      OHAYO_ARGV_HEAD=$(tr '\000' '\n' < "/proc/$OHAYO_PROCESS_PID/cmdline" 2>/dev/null | head -n 2)
+      [ "$OHAYO_ARGV_HEAD" = "$(printf '%s\n%s' "$OHAYO_PROCESS_EXE" "$OHAYO_PROCESS_EXE")" ] ||
+        [ "$OHAYO_ARGV_HEAD" = "$(printf '%s\n%s' "${OHAYO_PROCESS_EXE##*/}" "$OHAYO_PROCESS_EXE")" ]
+      ;;
+    *) return 1;;
+  esac
+}
 # A recycled PID must not be mistaken for the supervisor.
 manager_alive() {
   [ -r "$OHAYO_PREFIX/var/run/service-daemon.pid" ] || return 1
   OHAYO_MANAGER_PID=$(cat "$OHAYO_PREFIX/var/run/service-daemon.pid")
   case "$OHAYO_MANAGER_PID" in ''|*[!0-9]*) return 1;; esac
-  kill -0 "$OHAYO_MANAGER_PID" 2>/dev/null || return 1
-  [ "$(readlink "/proc/$OHAYO_MANAGER_PID/exe" 2>/dev/null)" = "$OHAYO_PREFIX/bin/runsvdir" ] || return 1
+  process_is "$OHAYO_MANAGER_PID" "$OHAYO_PREFIX/bin/runsvdir" || return 1
   tr '\000' ' ' < "/proc/$OHAYO_MANAGER_PID/cmdline" 2>/dev/null | grep -F "$SVDIR" >/dev/null
 }
-termux-wake-lock >/dev/null 2>&1 || log 'wake_lock=failed'
+timeout 5 termux-wake-lock >/dev/null 2>&1 || log 'wake_lock=failed'
 if ! manager_alive; then
   # Adopt an existing correct supervisor rather than starting a duplicate.
-  OHAYO_EXISTING=$(pgrep -f "^$OHAYO_PREFIX/bin/runsvdir $SVDIR$" | head -n 1)
+  OHAYO_EXISTING=""
+  for OHAYO_CANDIDATE in $(pgrep -f "^$OHAYO_PREFIX/bin/runsvdir( $OHAYO_PREFIX/bin/runsvdir)? $SVDIR$"); do
+    if process_is "$OHAYO_CANDIDATE" "$OHAYO_PREFIX/bin/runsvdir"; then
+      OHAYO_EXISTING="$OHAYO_CANDIDATE"
+      break
+    fi
+  done
   if [ -n "$OHAYO_EXISTING" ]; then
     printf '%s\n' "$OHAYO_EXISTING" > "$OHAYO_PREFIX/var/run/service-daemon.pid"
     log 'manager=adopted'
   else
-    # Reclaim only verified listeners left behind without a runsv owner.
-    for OHAYO_SERVICE in sshd crond; do
-      if ! sv status "$SVDIR/$OHAYO_SERVICE" >/dev/null 2>&1; then
-        case "$OHAYO_SERVICE" in sshd) OHAYO_PATTERN='^sshd -D -e$';; crond) OHAYO_PATTERN='^crond -n -s$';; esac
-        for OHAYO_ORPHAN in $(pgrep -f "$OHAYO_PATTERN"); do
-          if [ "$(readlink "/proc/$OHAYO_ORPHAN/exe" 2>/dev/null)" = "$OHAYO_PREFIX/bin/$OHAYO_SERVICE" ]; then
-            kill -TERM "$OHAYO_ORPHAN" 2>/dev/null || true
-            log "$OHAYO_SERVICE=orphan_reclaimed"
-          fi
-        done
-      fi
+    # runsvdir dying can leave runsv children holding each service lock. Retire
+    # only verified orphan supervisors in this service tree before replacing it.
+    for OHAYO_SUPERVISOR in $(pgrep -f '(^|/)runsv( [^ ]*/runsv)? [^ /]+$'); do
+      process_is "$OHAYO_SUPERVISOR" "$OHAYO_PREFIX/bin/runsv" || continue
+      OHAYO_OWNER=$(awk '/^PPid:/ { print $2 }' "/proc/$OHAYO_SUPERVISOR/status" 2>/dev/null)
+      if process_is "$OHAYO_OWNER" "$OHAYO_PREFIX/bin/runsvdir"; then continue; fi
+      OHAYO_SERVICE_PATH=$(readlink "/proc/$OHAYO_SUPERVISOR/cwd" 2>/dev/null)
+      case "$OHAYO_SERVICE_PATH" in "$SVDIR/"*)
+        OHAYO_SERVICE_NAME=${OHAYO_SERVICE_PATH#"$SVDIR/"}
+        case "$OHAYO_SERVICE_NAME" in ''|*/*) continue;; esac
+        sv -w 8 exit "$OHAYO_SERVICE_PATH" >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 || log "$OHAYO_SERVICE_NAME=orphan_supervisor_exit_failed"
+        log "$OHAYO_SERVICE_NAME=orphan_supervisor_retired"
+      ;; esac
     done
     rm -f "$OHAYO_PREFIX/var/run/service-daemon.pid"
     # Detach from SSH and never pass recovery/loop locks into the supervisor.
-    nohup "$OHAYO_PREFIX/bin/runsvdir" "$SVDIR" 8>&- 9>&- </dev/null >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 &
+    nohup setsid "$OHAYO_PREFIX/bin/runsvdir" "$SVDIR" 8>&- 9>&- </dev/null >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 &
     printf '%s\n' "$!" > "$OHAYO_PREFIX/var/run/service-daemon.pid"
     log 'manager=started'
 
   fi
 fi
+# Reclaim verified standalone service parents; never touch runsv-owned children.
+for OHAYO_SERVICE in sshd crond ohayo-remote-playback; do
+  case "$OHAYO_SERVICE" in
+    sshd) OHAYO_PATTERN='(^|/)sshd( [^ ]*/sshd)? -D -e$';;
+    crond) OHAYO_PATTERN='(^|/)crond( [^ ]*/crond)? -n -s$';;
+    ohayo-remote-playback) OHAYO_PATTERN='(^|/)node( [^ ]*/node)? dist/cli/remotePlaybackServer[.]js$';;
+  esac
+  for OHAYO_ORPHAN in $(pgrep -f "$OHAYO_PATTERN"); do
+    OHAYO_EXECUTABLE="$OHAYO_SERVICE"
+    [ "$OHAYO_SERVICE" != ohayo-remote-playback ] || OHAYO_EXECUTABLE=node
+    if process_is "$OHAYO_ORPHAN" "$OHAYO_PREFIX/bin/$OHAYO_EXECUTABLE"; then
+      OHAYO_PARENT=$(awk '/^PPid:/ { print $2 }' "/proc/$OHAYO_ORPHAN/status" 2>/dev/null)
+      if process_is "$OHAYO_PARENT" "$OHAYO_PREFIX/bin/runsv"; then continue; fi
+      if [ "$OHAYO_SERVICE" = ohayo-remote-playback ]; then
+        [ "$(readlink "/proc/$OHAYO_ORPHAN/cwd" 2>/dev/null)" = "$OHAYO_HOME/ohayo-bot" ] || continue
+      fi
+      kill -TERM "$OHAYO_ORPHAN" 2>/dev/null || true
+      log "$OHAYO_SERVICE=orphan_reclaimed"
+    fi
+  done
+done
 OHAYO_ATTEMPT=0
 while [ "$OHAYO_ATTEMPT" -lt 10 ]; do
-  sv status "$SVDIR/sshd" >/dev/null 2>&1 && sv status "$SVDIR/crond" >/dev/null 2>&1 && break
+  sv status "$SVDIR/sshd" >/dev/null 2>&1 && \
+    sv status "$SVDIR/crond" >/dev/null 2>&1 && \
+    sv status "$SVDIR/ohayo-remote-playback" >/dev/null 2>&1 && break
   OHAYO_ATTEMPT=$((OHAYO_ATTEMPT + 1))
   sleep 1
 done
 sv -w 10 up "$SVDIR/crond" >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 || log 'crond=start_failed'
 sv -w 10 up "$SVDIR/sshd" >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 || log 'sshd=start_failed'
+sv -w 10 up "$SVDIR/ohayo-remote-playback" >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 || log 'remote_playback=start_failed'
 OHAYO_PROBE="$OHAYO_STATE/ssh-probe-$$"
 trap 'rm -f "$OHAYO_PROBE"' EXIT HUP INT TERM
 ssh_probe() {
@@ -69,11 +130,36 @@ if ! ssh_probe; then
   sv -w 10 restart "$SVDIR/sshd" >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 || log 'sshd=restart_failed'
   sleep 1
 fi
+# A process that exits immediately (for example EADDRINUSE) is not healthy.
+remote_probe() {
+  timeout 5 "$OHAYO_PREFIX/bin/node" -e '
+    const fs = require("node:fs");
+    const http = require("node:http");
+    const dotenv = require(process.env.HOME + "/ohayo-bot/node_modules/dotenv");
+    const config = dotenv.parse(fs.readFileSync(process.env.HOME + "/ohayo-bot/.env"));
+    const port = config.REMOTE_PLAYBACK_PORT || 8765;
+    const req = http.get({host: "127.0.0.1", port, path: "/v1/play"}, res => {
+      res.resume(); process.exit(res.statusCode === 404 ? 0 : 1);
+    });
+    req.setTimeout(3000, () => req.destroy());
+    req.on("error", () => process.exit(1));
+  ' >/dev/null 2>&1
+}
 OHAYO_SSH=down
 OHAYO_CRON=down
+OHAYO_REMOTE_PLAYBACK=down
 case "$(sv status "$SVDIR/sshd" 2>&1)" in run:*) ssh_probe && OHAYO_SSH=up;; esac
 case "$(sv status "$SVDIR/crond" 2>&1)" in run:*) OHAYO_CRON=up;; esac
+case "$(sv status "$SVDIR/ohayo-remote-playback" 2>&1)" in run:*)
+  OHAYO_PROBE_ATTEMPT=0
+  while [ "$OHAYO_PROBE_ATTEMPT" -lt 3 ]; do
+    if remote_probe; then OHAYO_REMOTE_PLAYBACK=up; break; fi
+    OHAYO_PROBE_ATTEMPT=$((OHAYO_PROBE_ATTEMPT + 1))
+    sleep 1
+  done
+;; esac
 OHAYO_MANAGER=down
 manager_alive && OHAYO_MANAGER=up
-log "manager=$OHAYO_MANAGER crond=$OHAYO_CRON sshd=$OHAYO_SSH source=${1:-manual}"
-[ "$OHAYO_MANAGER" = up ] && [ "$OHAYO_CRON" = up ] && [ "$OHAYO_SSH" = up ]
+log "manager=$OHAYO_MANAGER crond=$OHAYO_CRON sshd=$OHAYO_SSH remote_playback=$OHAYO_REMOTE_PLAYBACK source=${1:-manual}"
+[ "$OHAYO_MANAGER" = up ] && [ "$OHAYO_CRON" = up ] && [ "$OHAYO_SSH" = up ] && \
+  [ "$OHAYO_REMOTE_PLAYBACK" = up ]

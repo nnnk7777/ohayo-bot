@@ -1,0 +1,12 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+umask 077
+
+OHAYO_PREFIX=/data/data/com.termux/files/usr
+OHAYO_HOME=/data/data/com.termux/files/home
+export PATH="$OHAYO_PREFIX/bin:$OHAYO_PREFIX/bin/applets"
+export LD_PRELOAD="$OHAYO_PREFIX/lib/libtermux-exec-ld-preload.so"
+
+cd "$OHAYO_HOME/ohayo-bot"
+# runit pipes output to the bounded svlogd logger installed beside this service.
+exec "$OHAYO_PREFIX/bin/node" dist/cli/remotePlaybackServer.js 2>&1

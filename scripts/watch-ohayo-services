@@ -10,8 +10,10 @@ mkdir -p "$OHAYO_STATE"
 exec 8>"$OHAYO_STATE/services-watch-loop.lock"
 flock -n 8 || exit 0
 printf '%s\n' "$$" > "$OHAYO_STATE/services-watch-loop.pid"
+trap 'rm -f "$OHAYO_STATE/services-watch-loop.pid"; exit 0' HUP INT TERM
+printf '%s loop=started pid=%s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$$" >> "$OHAYO_STATE/service-watchdog.log"
 # Separate from runsvdir: a dead runit parent does not stop recovery.
 while :; do
-  timeout 50 "$OHAYO_HOME/bin/ensure-ohayo-services" loop </dev/null >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 || true
-  sleep 60
+  timeout 50 "$OHAYO_HOME/bin/ensure-ohayo-services" loop 8>&- </dev/null >> "$OHAYO_STATE/service-recovery-errors.log" 2>&1 || true
+  sleep 60 8>&-
 done

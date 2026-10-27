@@ -47,6 +47,7 @@ export type MorningBriefingPlan = {
   agenda?: {
     items: Schedule[];
   };
+  news?: { announcement: string };
   weekdayFocus?: {
     period: "this-week" | "weekend-and-monday";
     date: string;

@@ -2,16 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 import { OfficialTrainStatusProvider, parseJrEastStatus, parseTokyoMetroStatus } from "./officialTrainStatus.js";
 
 const jrSegment = {
-  from: "三鷹",
-  to: "四ツ谷",
-  lineName: "中央線快速電車",
+  from: "テスト出発駅A",
+  to: "テスト乗換駅B",
+  lineName: "テストJR線",
   source: { kind: "jr-east" as const, officialUrl: "https://example.com/jr" },
 };
 const metroSegment = {
-  from: "四ツ谷",
-  to: "溜池山王",
-  lineName: "南北線",
-  source: { kind: "tokyo-metro" as const, officialUrl: "https://example.com/metro", lineId: "namboku" },
+  from: "テスト乗換駅B",
+  to: "テスト到着駅C",
+  lineName: "テストメトロ線",
+  source: { kind: "tokyo-metro" as const, officialUrl: "https://example.com/metro", lineId: "test_metro" },
 };
 
 describe("official train status parsers", () => {
@@ -21,7 +21,7 @@ describe("official train status parsers", () => {
       <section id="susp_service_info">
         <li class="traininfo-line-info__item">
           <p class="traininfo-line-info__status delay"><span>遅延</span>
-            <div class="traininfo-line-info__note"><p>中央線快速電車は、一部列車に遅れがでています。</p></div>
+            <div class="traininfo-line-info__note"><p>テストJR線は、一部列車に遅れがでています。</p></div>
           </p>
         </li>
         <!--運行情報更新履歴-->
@@ -29,7 +29,7 @@ describe("official train status parsers", () => {
     `, "Asia/Tokyo");
 
     expect(result.state).toBe("disrupted");
-    expect(result.detail).toBe("中央線快速電車は、一部列車に遅れがでています。");
+    expect(result.detail).toBe("テストJR線は、一部列車に遅れがでています。");
     expect(result.checkedAt.toISO()).toBe("2026-09-09T08:25:00.000+09:00");
   });
 
@@ -48,12 +48,12 @@ describe("official train status parsers", () => {
   it("東京メトロ公式JSONから対象路線の現在の状態を解析する", () => {
     const result = parseTokyoMetroStatus(`operate_status_cb_func({
       "jp": { "lines": [
-        { "name_alpha_db": "namboku", "status_icon": "chien", "status_info": "一部列車遅延", "contents": "南北線の一部列車に遅れが出ています。" }
+        { "name_alpha_db": "test_metro", "status_icon": "chien", "status_info": "一部列車遅延", "contents": "テストメトロ線の一部列車に遅れが出ています。" }
       ] }
-    });`, "namboku", "Asia/Tokyo", "Tue, 08 Sep 2026 23:27:00 GMT");
+    });`, "test_metro", "Asia/Tokyo", "Tue, 08 Sep 2026 23:27:00 GMT");
 
     expect(result.state).toBe("disrupted");
-    expect(result.detail).toBe("南北線の一部列車に遅れが出ています。");
+    expect(result.detail).toBe("テストメトロ線の一部列車に遅れが出ています。");
     expect(result.checkedAt.toISO()).toBe("2026-09-09T08:27:00.000+09:00");
   });
 });
@@ -65,7 +65,7 @@ describe("OfficialTrainStatusProvider", () => {
       status: 200,
       headers: { get: (name: string) => name === "date" ? "Tue, 08 Sep 2026 23:20:00 GMT" : null },
       text: async () => `operate_status_cb_func({"jp":{"lines":[
-        {"name_alpha_db":"namboku","status_icon":"heijou","status_info":"平常運転","contents":"現在、平常どおり運転しています。"}
+        {"name_alpha_db":"test_metro","status_icon":"heijou","status_info":"平常運転","contents":"現在、平常どおり運転しています。"}
       ]}});`,
     });
     const provider = new OfficialTrainStatusProvider(
@@ -75,7 +75,7 @@ describe("OfficialTrainStatusProvider", () => {
     );
 
     await expect(provider.getStatuses({ date: "2026-09-09", timeZone: "Asia/Tokyo" })).resolves.toEqual([
-      expect.objectContaining({ lineName: "南北線", state: "normal" }),
+      expect.objectContaining({ lineName: "テストメトロ線", state: "normal" }),
     ]);
   });
 
@@ -87,7 +87,7 @@ describe("OfficialTrainStatusProvider", () => {
         status: 200,
         headers: { get: (name: string) => name === "date" ? "Tue, 08 Sep 2026 21:00:00 GMT" : null },
         text: async () => `operate_status_cb_func({"jp":{"lines":[
-          {"name_alpha_db":"namboku","status_icon":"heijou","status_info":"平常運転","contents":"現在、平常どおり運転しています。"}
+          {"name_alpha_db":"test_metro","status_icon":"heijou","status_info":"平常運転","contents":"現在、平常どおり運転しています。"}
         ]}});`,
       });
     const provider = new OfficialTrainStatusProvider(
