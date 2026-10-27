@@ -33,12 +33,24 @@ export const personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: Sched
     },
   },
   scheduleRules: {
+    // 以下のコメント内の例はすべて架空です。使いたい項目だけコメントを外して調整します。
     // 朝の原稿で伝える必要がないタイトル。完全一致で指定します。
-    excludedTitles: [],
+    excludedTitles: [
+      // "家計メモ",
+      // "移動メモ",
+    ],
     // 金額メモなど、タイトルの一部が一致する予定を原稿から外します。
-    excludedTitleFragments: [],
-    // 略称などを朝の原稿向けの表現に置き換えます。
-    exactTitleRules: [],
+    excludedTitleFragments: [
+      // "引き落とし",
+    ],
+    // タイトルが完全一致したとき、朝の原稿向けの表現に置き換えます。
+    exactTitleRules: [
+      // {
+      //   title: "💈サンプル美容室",
+      //   briefingTitle: "美容院の予約",
+      //   requiresGoingOut: true,
+      // },
+    ],
     // 予定タイトルの先頭に付けた絵文字を、原稿生成の強めの補助情報として使えます。
     // タイトル・説明欄と矛盾する場合は、そちらが優先されます。
     prefixRules: [
@@ -46,8 +58,13 @@ export const personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: Sched
         prefix: "♨️",
         hint: "銭湯・サウナに行く予定を表す個人用の記法です。",
         suggestsGoingOut: true,
-        // 予定名の中身が施設名・地域名などと分かる場合に、個別の伝え方を追加できます。
-        detailHints: [],
+        // prefixを除いて前後の空白を取り除いた残りと、detailが完全一致すると追加します。
+        detailHints: [
+          // {
+          //   detail: "サンプル温浴施設",
+          //   hint: "サンプル温浴施設は施設名です。施設名を残して伝えてください。",
+          // },
+        ],
       },
       { prefix: "🍚", hint: "誰かと食事に行く予定を表す個人用の記法です。", suggestsGoingOut: true },
       { prefix: "🍽️", hint: "誰かと食事に行く予定を表す個人用の記法です。", suggestsGoingOut: true },
@@ -61,8 +78,17 @@ export const personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: Sched
       { prefix: "🎸", hint: "ライブに行く予定を表す個人用の記法です。", suggestsGoingOut: true },
     ],
     // タイトル末尾の記号に意味がある場合に、補助情報を付けられます。
-    suffixRules: [],
+    suffixRules: [
+      // {
+      //   suffix: "🎂",
+      //   // titlePrefixは任意です。指定すると、先頭と末尾の両方が一致したときだけ適用します。
+      //   titlePrefix: "🧸",
+      //   hint: "この記法は架空のペットの誕生日を表します。祝い方や外出予定は推測しないでください。",
+      // },
+    ],
     // 人名だけの予定を「〜さんと一緒に遊びに出かける予定」として読ませたい場合に指定します。
-    personOnlyTitles: [],
+    personOnlyTitles: [
+      // "サンプル太郎",
+    ],
   },
 };
