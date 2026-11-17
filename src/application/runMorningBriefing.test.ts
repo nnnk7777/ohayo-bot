@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runMorningBriefing } from "./runMorningBriefing.js";
+import { ErrorCollector } from "./errorReporting.js";
 import type { MorningBriefingPlan } from "../domain/morningBriefing.js";
 
 const today = { date: "2026-09-01", timeZone: "Asia/Tokyo" };
@@ -16,6 +17,47 @@ afterEach(() => {
 });
 
 describe("runMorningBriefing", () => {
+  it.each(["primary", "regional", "unavailable"] as const)("天気が%sでも、得られた情報と予定で再生する", async source => {
+    const errors = new ErrorCollector();
+    const schedule = { title: "作品展", startTime: "15:00", isAllDay: false, requiresGoingOut: true };
+    const weather = { condition: "clear", currentCelsius: 20, lowCelsius: 15, highCelsius: 25, rainProbability: 0 };
+    const forecast = { areaName: "架空の南部", summary: "くもりのち雨", hasUpcomingRainRisk: true };
+    const getWeather = source === "primary" ? vi.fn().mockResolvedValue(weather)
+      : vi.fn().mockRejectedValue(new DOMException("test", "TimeoutError"));
+    const getForecast = source === "unavailable" ? vi.fn().mockRejectedValue(new Error("test"))
+      : vi.fn().mockResolvedValue(forecast);
+    const narrator = { narrate: vi.fn(async (_plan: MorningBriefingPlan) => "作品展の予定があります。") };
+    const speaker = { speak: vi.fn() };
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await runMorningBriefing({
+      errors, personalProfile, narrator, speaker,
+      scheduleProvider: { getSchedules: vi.fn().mockResolvedValue([schedule]) },
+      holidayProvider: { isHoliday: vi.fn().mockResolvedValue(false) },
+      weatherProvider: { getWeather },
+      regionalWeatherProvider: { getForecast },
+    }, { today, speak: true });
+
+    const plan = narrator.narrate.mock.calls[0][0];
+    expect(plan.agenda?.items).toEqual([schedule]);
+    expect(speaker.speak).toHaveBeenCalledTimes(1);
+    expect(getForecast).toHaveBeenCalledTimes(source === "primary" ? 0 : 1);
+    expect(errors.issues).toEqual([
+      ...(source === "primary" ? [] : [{ stage: "Open-Meteo天気取得", code: "WEATHER_TIMEOUT", fatal: false }]),
+      ...(source === "unavailable" ? [{ stage: "気象庁天気取得", code: "FAILED", fatal: false }] : []),
+    ]);
+    if (source === "regional") {
+      expect(plan.weather.regionalForecast).toEqual({ areaName: forecast.areaName, summary: forecast.summary });
+      expect(plan.weather.umbrellaAdvice).toBeDefined();
+      expect(plan.weather.scheduleContext).toBeUndefined();
+    } else if (source === "unavailable") {
+      expect(plan.weather.forecastUnavailable).toBe(true);
+      expect(plan.weather.umbrellaAdvice).toBeUndefined();
+    }
+    expect(plan.weather.currentCelsius).toBe(source === "primary" ? 20 : undefined);
+  });
+
   it("外出予定の開始時刻に合う雨の事実を1回の原稿生成へ渡す", async () => {
     const narrator = { narrate: vi.fn(async (_plan: MorningBriefingPlan) => "今日の原稿です。") };
     const dinner = { title: "食事", startTime: "19:00", isAllDay: false, requiresGoingOut: true };

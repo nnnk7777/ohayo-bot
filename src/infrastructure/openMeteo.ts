@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import type { HourlyPrecipitation, Weather, WeatherCondition } from "../domain/morningBriefing.js";
 import type { Today, WeatherProvider } from "../application/ports.js";
+import type { HourlyWeatherCondition } from "../domain/remainingWeather.js";
 
 type OpenMeteoResponse = {
   current?: {
@@ -8,6 +9,7 @@ type OpenMeteoResponse = {
     weather_code?: number;
   };
   daily?: {
+    time?: string[];
     apparent_temperature_min?: number[];
     apparent_temperature_max?: number[];
     temperature_2m_min?: number[];
@@ -22,6 +24,8 @@ type OpenMeteoResponse = {
     precipitation_probability?: (number | null)[];
     rain?: (number | null)[];
     showers?: (number | null)[];
+    temperature_2m?: (number | null)[];
+    weather_code?: (number | null)[];
   };
 };
 
@@ -31,42 +35,46 @@ export class OpenMeteoWeatherProvider implements WeatherProvider {
   ) {}
 
   async getWeather(today: Today): Promise<Weather> {
+    const yesterday = DateTime.fromISO(today.date, { zone: today.timeZone }).minus({ days: 1 }).toISODate()!;
     const params = new URLSearchParams({
       latitude: String(this.location.latitude),
       longitude: String(this.location.longitude),
       timezone: today.timeZone,
-      start_date: today.date,
+      start_date: yesterday,
       end_date: today.date,
       // 降水量・降水確率は時刻ラベルの「直前1時間」。翌日00:00まで取得して23時台も含める。
-      start_hour: `${today.date}T01:00`,
+      start_hour: `${yesterday}T01:00`,
       end_hour: `${DateTime.fromISO(today.date, { zone: today.timeZone }).plus({ days: 1 }).toISODate()}T00:00`,
-      hourly: "precipitation_probability,rain,showers",
+      hourly: "precipitation_probability,rain,showers,temperature_2m,weather_code",
       current: "temperature_2m,weather_code",
       daily:
         "weather_code,temperature_2m_min,temperature_2m_max,apparent_temperature_min,apparent_temperature_max,precipitation_probability_max,uv_index_max,wind_speed_10m_max",
     });
-    const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
-      signal: AbortSignal.timeout(10_000),
+    const url = `https://api.open-meteo.com/v1/forecast?${params}`;
+    const data = await requestForecast(url, 10_000).catch((error: unknown) => {
+      if (error instanceof Error && (error.name === "TimeoutError" ||
+        (error instanceof TypeError && error.message === "fetch failed"))) {
+        return requestForecast(url, 5_000);
+      }
+      throw error;
     });
-
-    if (!response.ok) {
-      throw new Error(`天気の取得に失敗しました (${response.status})。`);
-    }
-
-    const data = (await response.json()) as OpenMeteoResponse;
+    const dayIndex = data.daily?.time?.indexOf(today.date) ?? -1;
+    if (dayIndex < 0) throw new Error("天気APIの応答に当日の情報がありません。");
+    const previousIndex = data.daily?.time?.indexOf(yesterday) ?? -1;
     const currentTemperature = data.current?.temperature_2m;
-    const low = data.daily?.temperature_2m_min?.[0];
-    const high = data.daily?.temperature_2m_max?.[0];
-    const rainProbability = data.daily?.precipitation_probability_max?.[0];
-    const weatherCode = data.current?.weather_code ?? data.daily?.weather_code?.[0];
+    const low = data.daily?.temperature_2m_min?.[dayIndex];
+    const high = data.daily?.temperature_2m_max?.[dayIndex];
+    const rainProbability = data.daily?.precipitation_probability_max?.[dayIndex];
+    const weatherCode = data.current?.weather_code;
     const hourlyPrecipitation = precipitationPeriods(data.hourly, today);
+    const hourlyConditions = conditionTimes(data.hourly, today);
 
     if (
-      currentTemperature === undefined ||
-      low === undefined ||
-      high === undefined ||
-      rainProbability === undefined ||
-      weatherCode === undefined
+      !temperature(currentTemperature) ||
+      !temperature(low) ||
+      !temperature(high) ||
+      !validNumber(rainProbability, 100) ||
+      !validNumber(weatherCode, 99)
     ) {
       throw new Error("天気APIの応答に必要な情報がありません。");
     }
@@ -77,13 +85,55 @@ export class OpenMeteoWeatherProvider implements WeatherProvider {
       lowCelsius: low,
       highCelsius: high,
       rainProbability,
-      apparentLowCelsius: data.daily?.apparent_temperature_min?.[0],
-      apparentHighCelsius: data.daily?.apparent_temperature_max?.[0],
-      maxUvIndex: data.daily?.uv_index_max?.[0],
-      maxWindSpeedKmh: data.daily?.wind_speed_10m_max?.[0],
+      apparentLowCelsius: data.daily?.apparent_temperature_min?.[dayIndex],
+      apparentHighCelsius: data.daily?.apparent_temperature_max?.[dayIndex],
+      maxUvIndex: data.daily?.uv_index_max?.[dayIndex],
+      maxWindSpeedKmh: data.daily?.wind_speed_10m_max?.[dayIndex],
+      ...(previousIndex >= 0 && temperature(data.daily?.temperature_2m_max?.[previousIndex])
+        ? { previousDayHighCelsius: data.daily!.temperature_2m_max![previousIndex] } : {}),
+      ...temperaturePeriods(data.hourly, today),
       ...(hourlyPrecipitation.length ? { hourlyPrecipitation } : {}),
+      ...(hourlyConditions.length ? { hourlyConditions } : {}),
     };
   }
+}
+
+async function requestForecast(url: string, timeoutMs: number): Promise<OpenMeteoResponse> {
+  const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw Object.assign(new Error(`天気の取得に失敗しました (${response.status})。`), { status: response.status });
+  }
+  return response.json() as Promise<OpenMeteoResponse>;
+}
+
+function conditionTimes(hourly: OpenMeteoResponse["hourly"], today: Today): HourlyWeatherCondition[] {
+  if (!Array.isArray(hourly?.time)) return [];
+  return hourly.time.flatMap((time, index) => {
+    const code = hourly.weather_code?.[index];
+    if (typeof time !== "string" || !time.startsWith(`${today.date}T`) ||
+      !/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):00$/.test(time) ||
+      !validNumber(code, 99) || !Number.isInteger(code)) return [];
+    return [{ time: time.slice(11), condition: weatherConditionFromCode(code) }];
+  });
+}
+
+function temperature(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= -100 && value <= 70;
+}
+
+function temperaturePeriods(hourly: OpenMeteoResponse["hourly"], today: Today) {
+  if (!Array.isArray(hourly?.time) || !Array.isArray(hourly?.temperature_2m)) return {};
+  const values = (hours: number[]) => hours.map(hour => {
+    const label = `${today.date}T${String(hour).padStart(2, "0")}:00`;
+    const index = hourly?.time?.indexOf(label) ?? -1;
+    return index < 0 ? undefined : hourly?.temperature_2m?.[index];
+  });
+  // 最低気温だけでは、明け方の寒さと夕方以降の冷え込みを区別できない。
+  const daytime = values([12, 13, 14, 15, 16]);
+  const evening = values([18, 19, 20, 21, 22]);
+  if (!daytime.every(temperature) || !evening.every(temperature)) return {};
+  return { daytimeHighCelsius: Math.max(...daytime), eveningLowCelsius: Math.min(...evening) };
 }
 
 function precipitationPeriods(hourly: OpenMeteoResponse["hourly"], today: Today): HourlyPrecipitation[] {

@@ -5,6 +5,11 @@ import { personalProfile } from "./personalProfile.js";
 import { liveSpeechProfile } from "./liveSpeechProfile.js";
 import { GoogleCalendarScheduleProvider, GoogleJapaneseHolidayProvider } from "../infrastructure/googleCalendar.js";
 import { OpenMeteoWeatherProvider } from "../infrastructure/openMeteo.js";
+import { JmaWeatherProvider } from "../infrastructure/jmaWeather.js";
+import { GooglePollenProvider } from "../infrastructure/googlePollen.js";
+import { TokyoPollenSeasonProvider } from "../infrastructure/tokyoPollenSeason.js";
+import { FilePollenSeasonHistory } from "../infrastructure/pollenSeasonHistory.js";
+import { JmaYellowDustProvider } from "../infrastructure/jmaYellowDust.js";
 import { OpenAiBriefingNarrator } from "../infrastructure/openAiNarrator.js";
 import { createAudioPlayer } from "../infrastructure/audioPlayer.js";
 import { MacSaySpeaker } from "../infrastructure/speech.js";
@@ -33,6 +38,14 @@ export function createDependencies(config: AppConfig, errors?: ErrorCollector) {
     holidayProvider: new GoogleJapaneseHolidayProvider(config.googleCalendar),
     trainStatusProvider: new OfficialTrainStatusProvider(personalProfile.dailyRoutine.commute?.segments ?? [], undefined, undefined, errors?.record),
     weatherProvider: new OpenMeteoWeatherProvider(config.location),
+    regionalWeatherProvider: config.jmaWeatherArea
+      ? new JmaWeatherProvider(config.jmaWeatherArea.officeCode, config.jmaWeatherArea.areaCode)
+      : undefined,
+    pollenProvider: config.pollenApiKey ? new GooglePollenProvider(config.pollenApiKey, config.location) : undefined,
+    pollenSeason: config.pollenSeasonRegion === "tokyo" ? {
+      provider: new TokyoPollenSeasonProvider(), history: new FilePollenSeasonHistory(),
+    } : undefined,
+    yellowDustProvider: config.yellowDustAreaCode ? new JmaYellowDustProvider(config.yellowDustAreaCode) : undefined,
     narrator: new OpenAiBriefingNarrator(config.openAiApiKey, morningBriefingProfile),
     speaker:
       config.speech.engine === "openai"

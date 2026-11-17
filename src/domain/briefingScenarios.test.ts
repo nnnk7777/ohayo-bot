@@ -26,7 +26,7 @@ describe("briefing scenarios", () => {
 
   it("晴れている朝も、夜の予定と雨が重なるサンプルを確認できる", () => {
     const plan = getBriefingScenario("rain-evening-out");
-    expect(plan.weather.condition).toBe("晴れ");
+    expect(plan.weather.currentCondition).toBe("晴れ");
     expect(plan.weather.scheduleContext?.schedule).toEqual({ title: "食事", startTime: "19:00" });
     expect(plan.weather.umbrellaAdvice).toBeUndefined();
   });
@@ -58,7 +58,7 @@ describe("briefing scenarios", () => {
   it("選択した条件を一つの原稿用プランへ合成できる", () => {
     const plan = composeBriefingScenario(["rain", "cold", "busy"]);
 
-    expect(plan.weather.condition).toBe("雨");
+    expect(plan.weather.currentCondition).toBe("雨");
     expect(plan.weather.currentCelsius).toBe(5);
     expect(plan.weather.umbrellaAdvice).toBeDefined();
     expect(plan.agenda?.items).toHaveLength(5);

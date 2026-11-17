@@ -27,6 +27,8 @@ export function formatErrorReport(report: ErrorReport): { subject: string; text:
 function issueDescription(code: string): string {
   const descriptions: Record<string, string> = {
     FAILED: "処理に失敗しました", EMPTY_SCRIPT: "空の原稿が返されました",
+    WEATHER_TIMEOUT: "天気の取得がタイムアウトしました",
+    WEATHER_NETWORK_ERROR: "天気の取得中に通信エラーが発生しました",
     FETCH_OR_PARSE_FAILED: "公式情報を取得または解析できませんでした",
     STALE_INFORMATION: "公式情報の更新時刻が古い、または不正でした",
     CLOSING_MISSING: "再生成後も音声の末尾欠落が残りました",

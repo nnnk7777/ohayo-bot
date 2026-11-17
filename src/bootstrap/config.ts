@@ -4,6 +4,10 @@ import type { AudioPlayerPreference } from "../infrastructure/audioPlayer.js";
 
 export type AppConfig = {
   openAiApiKey: string;
+  jmaWeatherArea?: { officeCode: string; areaCode: string };
+  pollenApiKey?: string;
+  pollenSeasonRegion?: "tokyo";
+  yellowDustAreaCode?: string;
   speech: {
     engine: "macos" | "openai";
     audioPlayer: AudioPlayerPreference;
@@ -27,6 +31,10 @@ export type GoogleCalendarConfig = {
 export function loadConfig(): AppConfig {
   return {
     openAiApiKey: required("OPENAI_API_KEY"),
+    jmaWeatherArea: jmaWeatherArea(),
+    pollenApiKey: process.env.GOOGLE_POLLEN_API_KEY?.trim() || undefined,
+    pollenSeasonRegion: pollenSeasonRegion(),
+    yellowDustAreaCode: yellowDustAreaCode(),
     speech: {
       engine: speechEngine(),
       audioPlayer: audioPlayerPreference(),
@@ -40,6 +48,28 @@ export function loadConfig(): AppConfig {
     timeZone: required("TIME_ZONE"),
     googleCalendar: loadGoogleCalendarConfig(),
   };
+}
+
+function jmaWeatherArea(): AppConfig["jmaWeatherArea"] {
+  const value = process.env.JMA_WEATHER_FORECAST_AREA?.trim();
+  if (!value) return undefined;
+  const codes = /^(\d{6}):(\d{6})$/.exec(value);
+  if (!codes) throw new Error("環境変数 JMA_WEATHER_FORECAST_AREA は府県予報区:一次細分区域の形式にしてください。");
+  return { officeCode: codes[1], areaCode: codes[2] };
+}
+
+function yellowDustAreaCode(): string | undefined {
+  const value = process.env.JMA_FORECAST_AREA_CODE?.trim();
+  if (!value) return undefined;
+  if (!/^\d{6}$/.test(value)) throw new Error("環境変数 JMA_FORECAST_AREA_CODE は6桁の数字にしてください。");
+  return value;
+}
+
+function pollenSeasonRegion(): "tokyo" | undefined {
+  const value = process.env.POLLEN_SEASON_REGION?.trim();
+  if (!value) return undefined;
+  if (value === "tokyo") return value;
+  throw new Error("環境変数 POLLEN_SEASON_REGION は tokyo または未設定にしてください。");
 }
 
 function speechEngine(): "macos" | "openai" {
