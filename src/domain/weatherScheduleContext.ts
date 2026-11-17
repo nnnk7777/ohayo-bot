@@ -1,5 +1,6 @@
 import type { HourlyPrecipitation, Schedule } from "./morningBriefing.js";
 import { hasOutsideSchedule } from "./personalProfile/dailyRoutine.js";
+import { timeMinutes } from "./remainingWeather.js";
 
 export type WeatherScheduleContext = {
   kind: "rain-near-schedule";
@@ -17,9 +18,11 @@ export type WeatherScheduleContext = {
 export function selectWeatherScheduleContext(
   schedules: readonly Schedule[],
   hourly: readonly HourlyPrecipitation[],
+  fromTime = "00:00",
 ): WeatherScheduleContext | undefined {
   const candidates = schedules
-    .filter(schedule => !schedule.isAllDay && hasOutsideSchedule(schedule) && minutes(schedule.startTime) !== undefined)
+    .filter(schedule => !schedule.isAllDay && hasOutsideSchedule(schedule) && minutes(schedule.startTime) !== undefined &&
+      timeMinutes(fromTime) !== undefined && minutes(schedule.startTime)! >= timeMinutes(fromTime)!)
     .sort((a, b) => minutes(a.startTime)! - minutes(b.startTime)!);
 
   for (const schedule of candidates) {

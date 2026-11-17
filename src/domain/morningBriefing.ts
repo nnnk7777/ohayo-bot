@@ -1,5 +1,9 @@
 import type { CommuteIssue } from "./trainOperation.js";
 import { selectWeatherScheduleContext, type WeatherScheduleContext } from "./weatherScheduleContext.js";
+import { temperatureChanges, type TemperatureComparison, type TemperatureChanges } from "./temperatureChanges.js";
+import type { PollenForecast } from "./pollen.js";
+import type { YellowDustNotice } from "./yellowDust.js";
+import { remainingConditions, remainingPrecipitation, weatherOutlook, type HourlyWeatherCondition } from "./remainingWeather.js";
 
 export type WeatherCondition = "clear" | "cloudy" | "rain" | "snow" | "other";
 
@@ -11,7 +15,7 @@ export type HourlyPrecipitation = {
   rainMillimeters: number;
 };
 
-export type Weather = {
+export type Weather = TemperatureComparison & {
   condition: WeatherCondition;
   currentCelsius: number;
   lowCelsius: number;
@@ -22,6 +26,13 @@ export type Weather = {
   maxUvIndex?: number;
   maxWindSpeedKmh?: number;
   hourlyPrecipitation?: HourlyPrecipitation[];
+  hourlyConditions?: HourlyWeatherCondition[];
+};
+
+export type RegionalWeatherForecast = {
+  areaName: string;
+  summary: string;
+  hasUpcomingRainRisk: boolean;
 };
 
 export type Schedule = {
@@ -47,13 +58,20 @@ export type MorningBriefingPlan = {
     style?: "brief" | "gentle" | "plain";
   };
   weather: {
-    condition: string;
-    currentCelsius: number;
-    lowCelsius: number;
-    highCelsius: number;
+    currentCondition?: string;
+    outlook?: { period: "午前" | "午後" | "夜"; conditions: string[] }[];
+    currentCelsius?: number;
+    lowCelsius?: number;
+    highCelsius?: number;
+    regionalForecast?: Pick<RegionalWeatherForecast, "areaName" | "summary">;
+    forecastUnavailable?: true;
     umbrellaAdvice?: string;
     seasonalAdvice?: string[];
     scheduleContext?: WeatherScheduleContext;
+    temperatureChanges?: TemperatureChanges;
+    pollen?: PollenForecast;
+    pollenSeasonStart?: { announcement: string }[];
+    yellowDust?: YellowDustNotice;
   };
   agenda?: {
     items: Schedule[];
@@ -81,22 +99,36 @@ const conditionLabels: Record<WeatherCondition, string> = {
 
 export function planMorningBriefing(input: {
   date: string;
+  fromTime?: string;
   locationName?: string;
-  weather: Weather;
+  weather?: Weather;
+  regionalForecast?: RegionalWeatherForecast;
   schedules: Schedule[];
   isLikelyGoingOut?: boolean;
   isHoliday?: boolean;
   upcomingScheduleDays?: UpcomingScheduleDay[];
   commuteIssues?: CommuteIssue[];
+  pollen?: PollenForecast;
+  yellowDust?: YellowDustNotice;
 }): MorningBriefingPlan {
   const schedulesToMention = input.schedules;
+  const fromTime = input.fromTime ?? "00:00";
+  const { weather, regionalForecast } = input;
+  const precipitation = remainingPrecipitation(weather?.hourlyPrecipitation ?? [], fromTime);
+  const conditions = remainingConditions(weather?.hourlyConditions ?? [], fromTime);
+  const outlook = weather ? weatherOutlook(conditions, weather.condition) : [];
   const scheduleContext = input.isLikelyGoingOut === false
     ? undefined
-    : selectWeatherScheduleContext(schedulesToMention, input.weather.hourlyPrecipitation ?? []);
+    : selectWeatherScheduleContext(schedulesToMention, precipitation, fromTime);
   const shouldBringUmbrella = input.isLikelyGoingOut !== false && (
-    input.weather.condition === "rain" || input.weather.rainProbability >= 40 || Boolean(scheduleContext)
+    weather?.condition === "rain" || conditions.some(item => item.condition === "rain") ||
+    precipitation.some(period => period.precipitationProbability >= 40) || Boolean(scheduleContext) ||
+    regionalForecast?.hasUpcomingRainRisk === true
   );
-  const seasonalAdvice = input.isLikelyGoingOut !== false ? seasonalAdviceFor(input.weather) : [];
+  const seasonalAdvice = weather && input.isLikelyGoingOut !== false ? seasonalAdviceFor(weather) : [];
+  const changes = weather ? temperatureChanges(weather.highCelsius, weather) : undefined;
+  const pollen = input.pollen?.date === input.date && input.pollen.types.length ? input.pollen : undefined;
+  const yellowDust = input.yellowDust?.date === input.date ? input.yellowDust : undefined;
   const weekdayFocus = input.isHoliday
     ? undefined
     : selectWeekdayFocus(input.date, schedulesToMention, input.upcomingScheduleDays ?? []);
@@ -106,20 +138,28 @@ export function planMorningBriefing(input: {
     locationName: input.locationName,
     closing: closingFor({
       date: input.date,
-      hasWeatherAdvice: shouldBringUmbrella || seasonalAdvice.length > 0,
+      hasWeatherAdvice: shouldBringUmbrella || seasonalAdvice.length > 0 || Boolean(changes) || Boolean(pollen) || Boolean(yellowDust),
       hasSchedules: input.schedules.length > 0,
     }),
     weather: {
-      condition: conditionLabels[input.weather.condition],
-      currentCelsius: Math.round(input.weather.currentCelsius),
-      lowCelsius: Math.round(input.weather.lowCelsius),
-      highCelsius: Math.round(input.weather.highCelsius),
+      ...(weather ? {
+        currentCondition: conditionLabels[weather.condition],
+        currentCelsius: Math.round(weather.currentCelsius),
+        lowCelsius: Math.round(weather.lowCelsius),
+        highCelsius: Math.round(weather.highCelsius),
+      } : regionalForecast ? {
+        regionalForecast: { areaName: regionalForecast.areaName, summary: regionalForecast.summary },
+      } : { forecastUnavailable: true as const }),
+      ...(outlook.length ? { outlook: outlook.map(item => ({ period: item.period, conditions: item.conditions.map(condition => conditionLabels[condition]) })) } : {}),
       // 予定に結び付けて傘を案内する場合は、一般的な傘の一文を重ねない。
       umbrellaAdvice: shouldBringUmbrella && !scheduleContext
         ? "雨の可能性があるため、傘があると安心です。"
         : undefined,
       seasonalAdvice: seasonalAdvice.length > 0 ? seasonalAdvice : undefined,
       ...(scheduleContext ? { scheduleContext } : {}),
+      ...(changes ? { temperatureChanges: changes } : {}),
+      ...(pollen ? { pollen } : {}),
+      ...(yellowDust ? { yellowDust } : {}),
     },
     agenda:
       schedulesToMention.length > 0
@@ -137,7 +177,7 @@ export function planMorningBriefing(input: {
     targetDurationSeconds: targetDurationSeconds({
       scheduleCount: input.schedules.length,
       hasUmbrellaAdvice: shouldBringUmbrella,
-      hasSeasonalAdvice: seasonalAdvice.length > 0,
+      hasSeasonalAdvice: seasonalAdvice.length > 0 || Boolean(changes) || Boolean(pollen) || Boolean(yellowDust),
       hasWeekdayFocus: Boolean(weekdayFocus),
       hasCommuteIssue: Boolean(input.commuteIssues?.length),
     }),

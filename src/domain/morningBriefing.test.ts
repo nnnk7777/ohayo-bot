@@ -24,27 +24,28 @@ describe("planMorningBriefing", () => {
     expect(plan.weather.umbrellaAdvice).toBeUndefined();
   });
 
-  it("予定時刻と合わない場合や時間帯別予報がない場合は従来の傘案内を維持する", () => {
+  it("予定時刻と合わない場合は今後の雨があるときだけ一般の傘案内を使う", () => {
     for (const hourlyPrecipitation of [undefined, contextWeather.hourlyPrecipitation]) {
       const plan = planMorningBriefing({
         date: "2026-10-27", weather: { ...contextWeather, rainProbability: 70, hourlyPrecipitation },
         schedules: [{ ...dinner, startTime: "12:00" }],
       });
       expect(plan.weather.scheduleContext).toBeUndefined();
-      expect(plan.weather.umbrellaAdvice).toBeDefined();
+      expect(Boolean(plan.weather.umbrellaAdvice)).toBe(Boolean(hourlyPrecipitation));
     }
   });
 
   it("天気を丸め、最初の3件の予定と傘の案内をまとめる", () => {
     const plan = planMorningBriefing({
       date: "2026-09-01",
-      locationName: "武蔵野市",
+      locationName: "サンプル市",
       weather: {
         condition: "cloudy",
         currentCelsius: 25.4,
         lowCelsius: 22.2,
         highCelsius: 30.6,
         rainProbability: 40,
+        hourlyPrecipitation: [{ startTime: "20:00", endTime: "21:00", precipitationProbability: 40, rainMillimeters: 0.2 }],
       },
       schedules: [
         { title: "朝の予定", startTime: "09:00", isAllDay: false },
@@ -55,13 +56,13 @@ describe("planMorningBriefing", () => {
     });
 
     expect(plan.weather).toEqual({
-      condition: "くもり",
+      currentCondition: "くもり",
       currentCelsius: 25,
       lowCelsius: 22,
       highCelsius: 31,
       umbrellaAdvice: "雨の可能性があるため、傘があると安心です。",
     });
-    expect(plan.locationName).toBe("武蔵野市");
+    expect(plan.locationName).toBe("サンプル市");
     expect(plan.agenda).toEqual({
       items: [
         { title: "朝の予定", startTime: "09:00", isAllDay: false },
@@ -86,7 +87,7 @@ describe("planMorningBriefing", () => {
       schedules: [],
     });
 
-    expect(plan.weather.condition).toBe("晴れ");
+    expect(plan.weather.currentCondition).toBe("晴れ");
     expect(plan.closing).toEqual({ kind: "neutral", style: "gentle" });
     expect(plan.weather.umbrellaAdvice).toBeUndefined();
     expect(plan.agenda).toBeUndefined();

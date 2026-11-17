@@ -12,6 +12,11 @@ import type {
   Speaker,
   Today,
   WeatherProvider,
+  RegionalWeatherProvider,
+  PollenProvider,
+  PollenSeasonProvider,
+  PollenSeasonHistory,
+  YellowDustProvider,
   TrainStatusProvider,
   NewsProvider,
   NewsMailer,
@@ -24,6 +29,10 @@ type Dependencies = {
   personalProfile: { dailyRoutine: DailyRoutine; scheduleRules: ScheduleRules };
   scheduleProvider: ScheduleProvider;
   weatherProvider: WeatherProvider;
+  regionalWeatherProvider?: RegionalWeatherProvider;
+  pollenProvider?: PollenProvider;
+  pollenSeason?: { provider: PollenSeasonProvider; history: PollenSeasonHistory };
+  yellowDustProvider?: YellowDustProvider;
   holidayProvider: HolidayProvider;
   trainStatusProvider?: TrainStatusProvider;
   narrator: BriefingNarrator;
@@ -36,10 +45,39 @@ export async function runMorningBriefing(
   options: { today: Today; speak: boolean; locationName?: string },
 ): Promise<string> {
   const track = <T>(stage: string, work: () => Promise<T>): Promise<T> => dependencies.errors ? dependencies.errors.track(stage, work) : work();
-  const [weather, rawSchedules, isHoliday] = await settleValues([
-    track("天気取得", () => dependencies.weatherProvider.getWeather(options.today)),
+  const [weather, rawSchedules, isHoliday, pollen, yellowDust, pollenSeason] = await settleValues([
+    getBriefingWeather(dependencies, options.today),
     track("当日予定取得", () => dependencies.scheduleProvider.getSchedules(options.today)),
     track("祝日取得", () => dependencies.holidayProvider.isHoliday(options.today)),
+    (async () => {
+      if (!dependencies.pollenProvider) return undefined;
+      try { return await dependencies.pollenProvider.getForecast(options.today); }
+      catch {
+        dependencies.errors?.record("花粉取得", "FETCH_OR_PARSE_FAILED");
+        console.warn("花粉予報を確認できなかったため、花粉の案内を省きます。");
+        return undefined;
+      }
+    })(),
+    (async () => {
+      if (!dependencies.yellowDustProvider) return undefined;
+      try { return await dependencies.yellowDustProvider.getNotice(options.today); }
+      catch {
+        dependencies.errors?.record("黄砂取得", "FETCH_OR_PARSE_FAILED");
+        console.warn("黄砂の公式情報を確認できなかったため、黄砂の案内を省きます。");
+        return undefined;
+      }
+    })(),
+    (async () => {
+      if (!dependencies.pollenSeason) return [];
+      try {
+        const introduced = await dependencies.pollenSeason.history.read();
+        return await dependencies.pollenSeason.provider.getNotices(options.today, introduced);
+      } catch {
+        dependencies.errors?.record("花粉開始発表取得", "FETCH_OR_PARSE_FAILED");
+        console.warn("花粉開始発表を確認できなかったため、開始の案内を省きます。");
+        return [];
+      }
+    })(),
   ]);
   const schedules = applyScheduleRules(rawSchedules, dependencies.personalProfile.scheduleRules);
   const shouldCheckTrainStatus = Boolean(
@@ -68,10 +106,13 @@ export async function runMorningBriefing(
 
   const plan = planMorningBriefing({
     date: options.today.date,
+    fromTime: options.today.time,
     locationName: options.locationName,
-    weather,
+    ...weather,
     schedules,
     isHoliday,
+    pollen,
+    yellowDust,
     upcomingScheduleDays,
     commuteIssues: commuteIssues(trainStatuses),
     isLikelyGoingOut: isLikelyGoingOut({
@@ -81,6 +122,10 @@ export async function runMorningBriefing(
       dailyRoutine: dependencies.personalProfile.dailyRoutine,
     }),
   });
+  if (pollenSeason.length) {
+    plan.weather.pollenSeasonStart = pollenSeason.map(item => ({ announcement: item.announcement }));
+    plan.targetDurationSeconds += 10;
+  }
   let news: NewsItem | undefined;
   if (dependencies.news && canIncludeMorningNews(plan)) {
     try {
@@ -117,6 +162,13 @@ export async function runMorningBriefing(
       }
     }
     await track("音声生成・再生", () => dependencies.speaker.speak(briefing));
+    if (pollenSeason.length && dependencies.pollenSeason) {
+      try { await dependencies.pollenSeason.history.record(pollenSeason.map(item => item.key)); }
+      catch {
+        dependencies.errors?.record("花粉開始履歴保存", "FAILED");
+        console.warn("花粉開始の案内履歴を保存できませんでした。");
+      }
+    }
     if (news && dependencies.news?.history) {
       try { await dependencies.news.history.record({ url: news.url, title: news.title }); }
       catch (error) {
@@ -127,4 +179,35 @@ export async function runMorningBriefing(
   }
 
   return briefing;
+}
+
+async function getBriefingWeather(
+  { weatherProvider, regionalWeatherProvider, errors }: Pick<Dependencies, "weatherProvider" | "regionalWeatherProvider" | "errors">,
+  today: Today,
+) {
+  try {
+    return { weather: await weatherProvider.getWeather(today) };
+  } catch (error) {
+    const code = weatherErrorCode(error);
+    errors?.record("Open-Meteo天気取得", code);
+    console.warn(`Open-Meteoの天気を取得できませんでした（${code}）。`);
+  }
+  if (regionalWeatherProvider) {
+    try {
+      const regionalForecast = await regionalWeatherProvider.getForecast(today);
+      console.warn("気象庁の地域予報を使用します。");
+      return { regionalForecast };
+    } catch (error) {
+      const code = weatherErrorCode(error);
+      errors?.record("気象庁天気取得", code);
+      console.warn(`気象庁の地域予報を取得できませんでした（${code}）。`);
+    }
+  }
+  return {};
+}
+
+function weatherErrorCode(error: unknown): string {
+  if (error instanceof Error && error.name === "TimeoutError") return "WEATHER_TIMEOUT";
+  if (error instanceof TypeError && error.message === "fetch failed") return "WEATHER_NETWORK_ERROR";
+  return safeErrorCode(error);
 }

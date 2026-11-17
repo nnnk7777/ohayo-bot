@@ -49,7 +49,7 @@ async function main(): Promise<void> {
     stage = "朝の実行";
     console.log(`${config.location.name}の朝のブリーフィングを作成します…`);
     await runMorningBriefing(dependencies, {
-      today: { date: now.toISODate(), timeZone }, locationName: config.location.name,
+      today: { date: now.toISODate(), timeZone, time: now.toFormat("HH:mm") }, locationName: config.location.name,
       speak: !args.includes("--no-speech"),
     });
   } catch (error) {
